@@ -49,6 +49,28 @@ def test_fisher_information_matches_closed_form(freqs: np.ndarray) -> None:
     assert delay_fisher_information(power, freqs, BETA, NOISE_VAR) == pytest.approx(expected)
 
 
+def test_fisher_information_matches_real_gaussian_finite_difference(freqs: np.ndarray) -> None:
+    """Independent check of the 2/sigma^2 factor via the real-valued Gaussian FIM.
+
+    Stack [Re y, Im y] with per-component variance sigma^2/2 and evaluate
+    J = (1/(sigma^2/2)) * sum ||d mu / d tau||^2 with a central finite difference
+    of the noiseless mean mu_k(tau) = beta sqrt(P_k) exp(-j 2 pi f_k tau).
+    """
+    rng = np.random.default_rng(5)
+    power = rng.uniform(0.0, 1.0, size=K)
+    tau0 = 3.3e-7
+    step = 1e-12
+
+    def mean(tau: float) -> np.ndarray:
+        return BETA * np.sqrt(power) * np.exp(-2j * np.pi * freqs * tau)
+
+    derivative = (mean(tau0 + step) - mean(tau0 - step)) / (2.0 * step)
+    real_stack = np.concatenate([derivative.real, derivative.imag])
+    j_numeric = np.sum(real_stack**2) / (NOISE_VAR / 2.0)
+    j_closed = delay_fisher_information(power, freqs, BETA, NOISE_VAR)
+    assert j_numeric == pytest.approx(j_closed, rel=1e-6)
+
+
 def test_fisher_information_increases_when_power_moves_to_edges(freqs: np.ndarray) -> None:
     uniform = np.full(K, 1.0 / K)
     edge = np.zeros(K)

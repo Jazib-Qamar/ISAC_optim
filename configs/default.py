@@ -221,6 +221,87 @@ class EnergyConfig:
 
 
 @dataclass(frozen=True)
+class AmbiguityConfig:
+    """Delay-domain ambiguity / sidelobe evaluation settings.
+
+    The power-spectrum-induced delay response ``A(tau) = sum_k P_k exp(j 2 pi f_k tau)``
+    is periodic with period ``1 / Delta_f``; the unambiguous delay interval is
+    ``[-1/(2 Delta_f), 1/(2 Delta_f)]``.  The mainlobe of a rectangular
+    (uniform) spectrum of bandwidth ``B = K Delta_f`` has its first null at
+    ``|tau| = 1 / B``.
+
+    Attributes
+    ----------
+    oversampling_factor:
+        Number of delay-grid samples per mainlobe scale ``1 / B``.  The grid
+        therefore has ``K * oversampling_factor`` points over one period.
+    mainlobe_exclusion_factor:
+        Half-width of the excluded mainlobe region in units of ``1 / B``.  ``1.0``
+        excludes exactly up to the first null of the uniform-spectrum response.
+    """
+
+    oversampling_factor: int = 16
+    mainlobe_exclusion_factor: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.oversampling_factor < 2:
+            raise ValueError("oversampling_factor must be at least 2")
+        if self.mainlobe_exclusion_factor <= 0.0:
+            raise ValueError("mainlobe_exclusion_factor must be positive")
+
+
+@dataclass(frozen=True)
+class OptimizationConfig:
+    """Static convex-optimisation settings.
+
+    Attributes
+    ----------
+    solver_preference:
+        Ordered CVXPY solver names; the first that returns an accepted status
+        is used (``CLARABEL`` preferred, ``SCS`` fallback).
+    feasibility_abs_tol:
+        Absolute tolerance used when verifying constraints on power quantities
+        [W] and on dimensionless quantities.
+    feasibility_rel_tol:
+        Relative tolerance (fraction of the constraint bound) used when
+        verifying constraints.
+    dinkelbach_max_iterations:
+        Iteration cap of the Dinkelbach loop.
+    dinkelbach_rel_tolerance:
+        Stop when ``|F(q)| <= tol * R_bps(P*)``.  The residual ``F(q)`` is in
+        bit/s, so the tolerance is expressed relative to the achieved rate.
+    rate_fraction_of_water_filling:
+        ``R_min = fraction * C_WF`` used by the static experiments, where
+        ``C_WF`` is the water-filling sum spectral efficiency at ``P_total``.
+    sensing_fraction_of_maximum:
+        ``Gamma_s = fraction * S_max`` where ``S_max`` is the largest surrogate
+        value attainable under the peak and total power limits.
+    """
+
+    solver_preference: tuple[str, ...] = ("CLARABEL", "SCS")
+    feasibility_abs_tol: float = 1e-9
+    feasibility_rel_tol: float = 1e-6
+    dinkelbach_max_iterations: int = 50
+    dinkelbach_rel_tolerance: float = 1e-8
+    rate_fraction_of_water_filling: float = 0.9
+    sensing_fraction_of_maximum: float = 0.6
+
+    def __post_init__(self) -> None:
+        if not self.solver_preference:
+            raise ValueError("solver_preference must contain at least one solver")
+        if self.feasibility_abs_tol <= 0.0 or self.feasibility_rel_tol < 0.0:
+            raise ValueError("feasibility tolerances must be positive")
+        if self.dinkelbach_max_iterations < 1:
+            raise ValueError("dinkelbach_max_iterations must be at least 1")
+        if self.dinkelbach_rel_tolerance <= 0.0:
+            raise ValueError("dinkelbach_rel_tolerance must be positive")
+        if not 0.0 <= self.rate_fraction_of_water_filling <= 1.0:
+            raise ValueError("rate_fraction_of_water_filling must lie in [0, 1]")
+        if not 0.0 <= self.sensing_fraction_of_maximum <= 1.0:
+            raise ValueError("sensing_fraction_of_maximum must lie in [0, 1]")
+
+
+@dataclass(frozen=True)
 class SimulationConfig:
     """Reproducibility and output settings."""
 
@@ -236,6 +317,8 @@ class DefaultConfig:
     channel: ChannelConfig = field(default_factory=ChannelConfig)
     sensing: SensingConfig = field(default_factory=SensingConfig)
     energy: EnergyConfig = field(default_factory=EnergyConfig)
+    ambiguity: AmbiguityConfig = field(default_factory=AmbiguityConfig)
+    optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
     simulation: SimulationConfig = field(default_factory=SimulationConfig)
 
 

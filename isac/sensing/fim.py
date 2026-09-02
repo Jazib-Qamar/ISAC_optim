@@ -16,6 +16,21 @@ energy-to-noise-PSD ratio ``E_k / N0`` for a rectangular OFDM symbol of
 duration ``T = 1 / Delta_f``.  Coherent integration over ``N`` symbols scales the
 Fisher information by ``N``.
 
+Noise convention and the factor of 2
+------------------------------------
+``n_k ~ CN(0, sigma^2)`` denotes a circularly-symmetric complex Gaussian whose
+real and imaginary parts are independent ``N(0, sigma^2 / 2)``, so that
+``E[|n_k|^2] = sigma^2`` is the noise *power per complex observation*.  Writing
+the observation as the real vector ``[Re y_k, Im y_k]`` with covariance
+``(sigma^2 / 2) I_2`` and applying the real Gaussian FIM formula gives
+
+    J_ij = (1 / (sigma^2 / 2)) * sum_k [ d(Re mu_k)/d theta_i d(Re mu_k)/d theta_j
+                                         + d(Im mu_k)/d theta_i d(Im mu_k)/d theta_j ]
+         = (2 / sigma^2) * Re{ sum_k (d mu_k / d theta_i)^* (d mu_k / d theta_j) }.
+
+The factor ``2 / sigma^2`` therefore comes from the per-component variance
+``sigma^2 / 2``; it is *not* an extra bandwidth or two-sided-PSD factor.
+
 Fisher information (complex Gaussian observations with parameter-dependent mean)
 -------------------------------------------------------------------------------
     J_ij = (2 / sigma^2) * Re{ sum_k (d mu_k / d theta_i)^* (d mu_k / d theta_j) }
