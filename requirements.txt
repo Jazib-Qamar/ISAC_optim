@@ -1,0 +1,15 @@
+# Core numerical stack (stage 1: system model, water-filling, CRB, energy model)
+numpy>=1.26
+scipy>=1.11
+matplotlib>=3.8
+pandas>=2.1
+
+# Testing
+pytest>=7.4
+
+# Later stages (not yet used by the code base, listed for planning only):
+# cvxpy>=1.4        # static convex optimisation (CLARABEL preferred, SCS fallback)
+# clarabel>=0.6
+# scs>=3.2
+# torch>=2.1        # SAC / ASARL agents
+# gymnasium>=0.29   # OFDM-ISAC environment
