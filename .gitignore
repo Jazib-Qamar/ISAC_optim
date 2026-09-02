@@ -5,4 +5,7 @@ __pycache__/
 build/
 dist/
 .pytest_cache/
-results/
+# Generated outputs: Stage 1 scratch results are ignored; the Stage 2 validation
+# outputs (small CSV tables and PNG figures) are kept under version control.
+results/*
+!results/stage2/

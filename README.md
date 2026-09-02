@@ -5,25 +5,45 @@ serves one communication user and senses one target with the same waveform,
 allocating per-subcarrier power `P_k` to trade off spectral efficiency,
 delay/ranging accuracy, sidelobe performance and energy consumption.
 
-The repository root is the `isac_ee` project. It is built incrementally; the
-current stage is the **validated static foundation** (system model, rate,
-water-filling, delay Fisher information / CRB, power model). Convex
-optimisation (CVXPY), the Gymnasium environment and RL agents are added in
-later stages once this foundation is verified.
+The repository root is the `isac_ee` project. It is built incrementally:
 
-## Layout (current stage)
+* **Stage 1 (done)** — validated static foundation: system model, rate,
+  water-filling, delay Fisher information / CRB, power model.
+* **Stage 2 (done)** — static convex OFDM-ISAC optimisation oracle: min-power,
+  max-rate and Dinkelbach energy-efficiency optimisers (CVXPY, CLARABEL with SCS
+  fallback), independent feasibility verification, exact delay-domain
+  ambiguity / PSL evaluation, baseline comparison, Pareto / EE frontiers,
+  surrogate and PSL-proxy validation, Monte Carlo and SNR sweeps.
+* Later stages — energy-harvesting MDP, Gymnasium environment, safe projection,
+  SAC / PDS / structure-aware / optimizer-guided agents.
+
+## Layout
 
 ```
-configs/default.py                 frozen dataclass configuration (units documented)
-isac/communication/rate.py         SNR_k, log2(1+SNR_k), sum spectral efficiency, bit/s rate
+configs/default.py                  frozen dataclass configuration (units documented)
+isac/system.py                      ISACSystem: one channel realisation + all physical parameters
+isac/communication/rate.py          SNR_k, log2(1+SNR_k), sum spectral efficiency, bit/s rate
 isac/communication/water_filling.py classical water-filling (bisection on mu, optional peak cap)
-isac/channels/rayleigh.py          i.i.d. frequency-selective Rayleigh CN(0, G)
-isac/sensing/frequencies.py        centred grid f_k = (k-(K-1)/2) Delta_f, surrogate weights w_k
-isac/sensing/fim.py                delay Fisher information (known / unknown amplitude), surrogate S(P)
-isac/sensing/crb.py                CRB_tau = 1/J_tau, range CRB, summary dataclass
-isac/energy/power_model.py         P_tx, P_sys = P_c + P_tx/eta_PA, energy per slot, EE [bit/J]
-experiments/exp01_basic_system.py  one channel: uniform vs water-filling, all metrics, plots, CSV
-tests/                             pytest suite for every module above
+isac/channels/rayleigh.py           i.i.d. frequency-selective Rayleigh CN(0, G)
+isac/sensing/frequencies.py         centred grid f_k = (k-(K-1)/2) Delta_f, surrogate weights w_k
+isac/sensing/fim.py                 delay Fisher information (known / unknown amplitude), surrogate S(P)
+isac/sensing/crb.py                 CRB_tau = 1/J_tau, range CRB, summary dataclass
+isac/sensing/ambiguity.py           delay-domain ambiguity profile, actual PSL / ISL
+isac/energy/power_model.py          P_tx, P_sys = P_c + P_tx/eta_PA, energy per slot, EE [bit/J]
+isac/optimization/solver.py         CVXPY solve helper: CLARABEL -> SCS fallback, strict status checks
+isac/optimization/feasibility.py    independent constraint verification, slacks, S_max (greedy LP)
+isac/optimization/common.py         scaled CVXPY model (x = P/P_peak), OptimizationResult
+isac/optimization/min_power.py      Problem A: min sum P  s.t. R >= R_min, S >= Gamma_s, box, budget
+isac/optimization/max_rate.py       Problem B: max R      s.t. S >= Gamma_s, box, budget (+ optional (1-gamma_c) C_WF)
+isac/optimization/dinkelbach.py     Problem C: max R_bps / P_sys via Dinkelbach (F(q*) -> 0)
+isac/optimization/heuristics.py     edge-weighted and sensing-optimal heuristic allocations
+isac/evaluation/metrics.py          single source of truth for all physical metrics of an allocation
+isac/evaluation/baselines.py        common baseline evaluator + requirement construction
+isac/evaluation/{plots,reporting,sampling,scenario}.py
+experiments/exp01_basic_system.py   Stage 1 sanity experiment
+experiments/exp02 ... exp09         Stage 2 experiments (see below)
+tests/                              pytest suite (Stage 1 + Stage 2)
+results/stage2/<experiment>/        CSV tables and PNG figures produced by the Stage 2 experiments
 ```
 
 ## Setup
@@ -44,36 +64,52 @@ with `get-pip.py`, or install `python3-venv`.
 ## Run
 
 ```bash
-pytest                                        # unit tests
-python experiments/exp01_basic_system.py      # prints metrics, writes results/exp01/
-python experiments/exp01_basic_system.py --seed 3 --show
+pytest                                                 # unit tests
+python experiments/exp01_basic_system.py               # Stage 1 sanity check -> results/exp01/
+python experiments/exp02_static_isac.py                # 2A single-channel baseline comparison
+python experiments/exp03_rate_sensing_pareto.py        # 2B rate vs sensing Pareto frontier (max-rate sweep)
+python experiments/exp04_ee_sensing_tradeoff.py        # 2C energy-efficiency frontier (Dinkelbach sweep)
+python experiments/exp05_dinkelbach_convergence.py     # 2D Dinkelbach residual / q / EE per iteration
+python experiments/exp06_sensing_surrogate_validation.py  # 2E S(P) vs FIM (known/unknown) vs CRB
+python experiments/exp07_psl_proxy_validation.py       # 2F max(P_k) / variance vs actual PSL
+python experiments/exp08_monte_carlo_static.py         # 2G 100-realisation Monte Carlo (--num-realizations)
+python experiments/exp09_snr_power_sweep.py            # 2H path-loss (SNR) sweep
 ```
 
-`exp01` writes `exp01_metrics.csv`, `exp01_per_subcarrier.csv`,
-`exp01_channel_gain.png` and `exp01_power_allocation.png` to `results/exp01/`.
+Every experiment accepts `--seed` and `--output-dir`, prints the configuration,
+saves raw CSV and figures under `results/stage2/<experiment>/`, and records
+infeasible or failed solves instead of discarding them.
 
-## Model summary (stage 1)
+## Model summary
 
 * Subcarriers: `f_k = (k - (K-1)/2) * Delta_f`, `K = 64`, `Delta_f = 15 kHz`.
 * Channel: `h_k = sqrt(G) g_k`, `g_k ~ CN(0,1)` i.i.d., `G = 10^(-PL/10)`.
 * Rate: `SNR_k = |h_k|^2 P_k / (N0 Delta_f)`, `R = sum_k log2(1 + SNR_k)`
   (bit/s/Hz summed over subcarriers; `Delta_f * R` gives bit/s).
-* Water-filling: `P_k = clip(mu - 1/alpha_k, 0, P_peak)`, `alpha_k = |h_k|^2/(N0 Delta_f)`,
-  `mu` by bisection so that `sum P_k = P_total`.
-* Sensing: `y_k = beta x_k e^{-j 2 pi f_k tau} + n_k`, `|x_k|^2 = P_k`, `n_k ~ CN(0, N0 Delta_f)`.
+* Water-filling: `P_k = clip(mu - 1/alpha_k, 0, P_peak)`, `alpha_k = |h_k|^2/(N0 Delta_f)`.
+* Sensing: `y_k = beta x_k e^{-j 2 pi f_k tau} + n_k`, `|x_k|^2 = P_k`, `n_k ~ CN(0, sigma^2)`,
+  `sigma^2 = N0 Delta_f` (real/imag parts `N(0, sigma^2/2)`, hence the factor `2/sigma^2`).
   Known amplitude: `J_tau = N (2|beta|^2/sigma^2) sum_k (2 pi f_k)^2 P_k`.
-  Unknown complex amplitude (Schur complement):
-  `J_tau = N (2|beta|^2/sigma^2)(2 pi)^2 [sum f_k^2 P_k - (sum f_k P_k)^2 / sum P_k]`.
+  Unknown complex amplitude: `J_tau = N (2|beta|^2/sigma^2)(2 pi)^2 [sum f_k^2 P_k - (sum f_k P_k)^2 / sum P_k]`.
   `CRB_tau = 1/J_tau` [s^2]; `CRB_R = (c/2)^2 CRB_tau` [m^2].
-* Linear sensing surrogate: `S(P) = sum_k w_k P_k`, `w_k = f_k^2` (or normalised index).
-  `S(P)` is proportional to the known-amplitude `J_tau`; it is **not** the CRB
-  and is never named as such.
+* Linear sensing surrogate: `S(P) = sum_k w_k P_k`, `w_k = f_k^2`. `S(P)` is
+  **proportional to the known-amplitude FIM** and an **upper bound** on the
+  unknown-amplitude FIM; it is never called "the CRB".
+* Delay ambiguity: `A(tau) = sum_k P_k e^{j 2 pi f_k tau}`, `A_norm = |A|/A(0)`;
+  PSL/ISL over `|tau| >= 1/B` (configurable). `P_k <= P_peak` is a **peak
+  spectral power constraint / PSL proxy**, not a PSL constraint.
 * Energy: `P_sys = P_circuit + sum_k P_k / eta_PA`, `EE = (Delta_f R) / P_sys` [bit/J].
 
-## Roadmap
+## Static optimisation problems (all convex, solved directly in CVXPY)
 
-1. Static convex optimisation in CVXPY (min-power, max-rate, Dinkelbach EE), KKT water-filling.
-2. Ambiguity function / actual PSL evaluator and validation experiments.
-3. Time-slotted energy-harvesting model, Gymnasium environment, safe projection.
-4. SAC baseline, post-decision state, structure-aware critic, optimizer-guided pretraining.
-5. Ablations and sample-efficiency studies.
+```
+A  min  sum_k P_k          s.t. R(P) >= R_min, S(P) >= Gamma_s, 0 <= P_k <= P_peak, sum P_k <= P_max
+B  max  R(P)               s.t. S(P) >= Gamma_s, 0 <= P_k <= P_peak, sum P_k <= P_total [, R >= (1-gamma_c) C_WF]
+C  max  R_bps(P)/P_sys(P)  s.t. S(P) >= Gamma_s, box, budget [, R >= R_min]   (Dinkelbach: q_{n+1} = R/P_sys, F(q*) = 0)
+```
+
+Requirements in the experiments are constructed relative to baseline
+performance: `R_min = 0.9 C_WF` (water-filling capacity of the realisation) and
+`Gamma_s = 0.6 S_max` (largest surrogate attainable under the peak/total power
+limits). All reported metrics are recomputed with the NumPy model from the
+returned allocation; every constraint is re-verified independently.

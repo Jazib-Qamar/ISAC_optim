@@ -1,0 +1,9 @@
+method,label,realizations,infeasibility_rate,solver_failure_rate,constraint_violation_rate,inaccurate_solve_rate,mean_dinkelbach_iterations
+uniform,Uniform,100,0.0,0.0,1.0,0.0,
+water_filling,Water-filling (comm. only),100,0.0,0.0,1.0,0.0,
+edge_weighted,Edge-weighted (∝ w_k),100,0.0,0.0,1.0,0.0,
+sensing_optimal,Sensing-optimal (max S),100,0.0,0.0,1.0,0.0,
+min_power_isac,Min-power ISAC,100,0.0,0.0,0.0,0.0,
+max_rate_isac,Max-rate ISAC,100,0.0,0.0,0.0,0.01,
+dinkelbach_ee_isac,Dinkelbach EE-ISAC,100,0.0,0.0,1.0,0.01,5.0
+dinkelbach_ee_rmin_isac,Dinkelbach EE-ISAC (+R_min),100,0.0,0.0,0.0,0.01,3.0

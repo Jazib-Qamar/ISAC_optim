@@ -13,6 +13,9 @@ dependencies = [
     "scipy>=1.11",
     "matplotlib>=3.8",
     "pandas>=2.1",
+    "cvxpy>=1.4",
+    "clarabel>=0.6",
+    "scs>=3.2",
 ]
 
 [project.optional-dependencies]
