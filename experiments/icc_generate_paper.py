@@ -48,7 +48,7 @@ def _ok(frame: pd.DataFrame, method: str | None = None) -> pd.DataFrame:
 
 
 def _pct(x: float) -> str:
-    if not np.isfinite(x):
+    if x is None or not np.isfinite(x):
         return "n/a"
     return f"{100.0 * x:.2f}%"
 
@@ -595,11 +595,17 @@ def write_claims(natural, ctrl, cp, front, numerology) -> dict:
         material_s2 = float(s2["material_false_sensing_feasibility_1pct"].mean()) if (not s2.empty and "material_false_sensing_feasibility_1pct" in s2.columns) else float("nan")
         phys_s2 = float(s2["physical_sensing_satisfied"].mean()) if not s2.empty else float("nan")
         phys_ef = float(ef["physical_sensing_satisfied"].mean()) if not ef.empty else float("nan")
+        arr = s2["fim_mismatch_percent"] if not s2.empty else pd.Series(dtype=float)
         evidence.update({
             "natural_n": int(natural["realization"].nunique()) if "realization" in natural else 0,
             "natural_mismatch_mean": mm.get("mean"),
             "natural_mismatch_median": mm.get("median"),
             "natural_mismatch_p95": mm.get("p95"),
+            "natural_mismatch_max": mm.get("max"),
+            "mismatch_gt_1": float((arr > 1.0).mean()) if len(arr) else float("nan"),
+            "mismatch_gt_2": float((arr > 2.0).mean()) if len(arr) else float("nan"),
+            "mismatch_gt_5": float((arr > 5.0).mean()) if len(arr) else float("nan"),
+            "mismatch_gt_10": float((arr > 10.0).mean()) if len(arr) else float("nan"),
             "pearson_r": corr.get("pearson_r"),
             "spearman_rho": corr.get("spearman_rho"),
             "false_s2": false_s2,
@@ -607,6 +613,9 @@ def write_claims(natural, ctrl, cp, front, numerology) -> dict:
             "material_false_s2_1pct": material_s2,
             "phys_s2": phys_s2,
             "phys_ef": phys_ef,
+            "natural_methods": sorted({str(m) for m in natural["method"].unique()}),
+            "natural_has_ee": "exact_efim_cutting_plane_psl_ee" in set(natural["method"].astype(str)),
+            "natural_n_rows": int(len(natural)),
         })
         add(
             f"Across {evidence['natural_n']} natural exponential-PDP TDL realisations, "
@@ -664,7 +673,15 @@ def write_claims(natural, ctrl, cp, front, numerology) -> dict:
             )
         v_s, m_s, _ = viol("exact_efim_sampled_psl")
         v_c, m_c, it_c = viol("exact_efim_cutting_plane_psl")
-        evidence.update({"sampled_viol": v_s, "cp_viol": v_c, "cp_iters": it_c, "sampled_margin": m_s, "cp_margin": m_c})
+        v_s2, _, _ = viol("conventional_s2_psl")
+        cp_ok = _ok(cp, "exact_efim_cutting_plane_psl")
+        runtime_col = "cutting_plane_runtime_s" if "cutting_plane_runtime_s" in cp_ok.columns else "solve_time_s"
+        cp_rt = float(cp_ok[runtime_col].mean()) if (not cp_ok.empty and runtime_col in cp_ok.columns) else float("nan")
+        evidence.update({
+            "sampled_viol": v_s, "cp_viol": v_c, "cp_iters": it_c,
+            "sampled_margin": m_s, "cp_margin": m_c,
+            "s2_psl_viol": v_s2, "cp_runtime_s": cp_rt,
+        })
         add(
             f"Cutting-plane refinement changed dense-grid PSL violation probability from "
             f"{_pct(v_s)} (sampled SOC) to {_pct(v_c)} (proposed), mean iterations {_fmt(it_c, 3)}.",
@@ -726,6 +743,12 @@ def write_claims(natural, ctrl, cp, front, numerology) -> dict:
         s2 = _ok(numerology, "conventional_s2")
         byk = s2.groupby("num_subcarriers")["fim_mismatch_percent"].mean() if not s2.empty else pd.Series(dtype=float)
         evidence["mismatch_by_K"] = byk.to_dict()
+        if "num_subcarriers" in numerology.columns:
+            methods_by_k = {}
+            for k, sub in numerology.groupby("num_subcarriers"):
+                methods_by_k[int(k)] = sorted({str(m) for m in sub["method"].unique()})
+            evidence["numerology_methods_by_K"] = methods_by_k
+            evidence["numerology_delta_f_fixed"] = True
         add(
             f"Mean conventional-S2 FIM mismatch by numerology (Δf fixed, B=KΔf): "
             + ", ".join(f"K={int(k)} → {_fmt(v, 3)}%" for k, v in byk.items()),
@@ -753,31 +776,129 @@ def write_claims(natural, ctrl, cp, front, numerology) -> dict:
     return evidence
 
 
+def _key_finding(fig_id: str, evidence: dict) -> str:
+    mm = evidence.get("natural_mismatch_mean")
+    med = evidence.get("natural_mismatch_median")
+    p95 = evidence.get("natural_mismatch_p95")
+    ctrl = evidence.get("controlled_mismatch_by_a") or {}
+    vs, vc = evidence.get("sampled_viol"), evidence.get("cp_viol")
+    if fig_id == "Fig. 1":
+        return (
+            f"N={evidence.get('natural_n')} indoor TDL: conventional mean ε_J={_fmt(mm, 3)}% "
+            f"(median {_fmt(med, 3)}%, p95 {_fmt(p95, 3)}%, max {_fmt(evidence.get('natural_mismatch_max'), 3)}%). "
+            f"Mismatch >1/2/5/10%: {_pct(evidence.get('mismatch_gt_1'))} / "
+            f"{_pct(evidence.get('mismatch_gt_2'))} / {_pct(evidence.get('mismatch_gt_5'))} / "
+            f"{_pct(evidence.get('mismatch_gt_10'))}. "
+            f"Pearson r(|f̄_P|, ε_J)={_fmt(evidence.get('pearson_r'), 3)}, "
+            f"Spearman ρ={_fmt(evidence.get('spearman_rho'), 3)}."
+        )
+    if fig_id == "Fig. 2":
+        if ctrl:
+            a0, aL = min(ctrl), max(ctrl)
+            return (
+                f"Synthetic logistic tilt (40 realisations × 9 values of a): mean conventional ε_J "
+                f"rises from {_fmt(ctrl[a0], 3)}% at a={a0} to {_fmt(ctrl[aL], 3)}% at a={aL}. "
+                f"Do not cite as a 3GPP/TDL result."
+            )
+        return "Controlled-tilt mismatch-by-a was not available."
+    if fig_id == "Fig. 3":
+        return (
+            f"12 TDL channels × FIM-fraction sweep. Proposed cutting-plane remains dense-feasible "
+            f"on ≥50% of channels up to Γ_J/J_max ≈ {_fmt(evidence.get('fim_psl_boundary_frac'), 3)}. "
+            f"PSL methods become infeasible at high Γ_J (see raw frontier CSV)."
+        )
+    if fig_id == "Fig. 4":
+        return (
+            f"Conventional S2 false ranging-feasibility {_pct(evidence.get('false_s2'))} "
+            f"at solver tolerance; material (>1% FIM shortfall) {_pct(evidence.get('material_false_s2_1pct'))}. "
+            f"Exact EFIM false-feasibility {_pct(evidence.get('false_ef'))}."
+        )
+    if fig_id == "Fig. 5":
+        return (
+            f"Independent dense-grid PSL is the paper claim. Sampled-SOC dense violation "
+            f"{_pct(vs)}; conventional S2+PSL {_pct(evidence.get('s2_psl_viol'))}; "
+            f"cutting-plane {_pct(vc)}."
+        )
+    if fig_id == "Fig. 6":
+        return (
+            f"N=200 TDL: sampled dense-PSL violation {_pct(vs)} → cutting-plane {_pct(vc)}, "
+            f"mean iterations {_fmt(evidence.get('cp_iters'), 3)}, "
+            f"mean runtime {_fmt(evidence.get('cp_runtime_s'), 3)} s."
+        )
+    if fig_id == "Fig. 7":
+        return (
+            f"Dinkelbach EE under exact EFIM+cutting-plane PSL: mean EE change "
+            f"{_fmt(evidence.get('ee_gain_pct_mean'), 3)}% vs max-rate, mean rate change "
+            f"{_fmt(evidence.get('ee_rate_loss_pct_mean'), 3)}% (positive = max-rate had higher rate). "
+            f"Dinkelbach is the solver, not a claimed novelty."
+        )
+    if fig_id == "Fig. 8":
+        return (
+            f"Empirical joint (Γ_J, PSL) map on 4 TDL channels. Proposed method dense-feasible "
+            f"on ≥50% of frontier channels up to Γ_J/J_max ≈ {_fmt(evidence.get('fim_psl_boundary_frac'), 3)} "
+            f"with the uniform-spectrum PSL request."
+        )
+    if fig_id == "Fig. 9":
+        ee_note = (
+            "The N=500 natural MC omits exact_efim_cutting_plane_psl_ee; EE is in the frontier and ablation."
+            if not evidence.get("natural_has_ee") else
+            "All catalog methods including EE are present."
+        )
+        return (
+            f"N={evidence.get('natural_n')} TDL, 7 methods (no EE). Mean S2 ε_J={_fmt(mm, 3)}%. {ee_note}"
+        )
+    return ""
+
+
+def _verdict(fig_id: str, evidence: dict) -> str:
+    mm = evidence.get("natural_mismatch_mean")
+    false_s2 = evidence.get("false_s2")
+    vs, vc = evidence.get("sampled_viol"), evidence.get("cp_viol")
+    ctrl = evidence.get("controlled_mismatch_by_a") or {}
+    if fig_id == "Fig. 1":
+        if mm is not None and np.isfinite(mm):
+            return "SUPPORTS" if mm >= 1.0 else "CONTRADICTS" if mm < 0.2 else "PARTIALLY SUPPORTS"
+    if fig_id == "Fig. 2":
+        if ctrl:
+            vals = list(ctrl.values())
+            return "SUPPORTS" if max(vals) >= 5.0 and max(vals) > 10.0 * max(min(vals), 1e-6) else "PARTIALLY SUPPORTS"
+    if fig_id == "Fig. 3":
+        return "PARTIAL"
+    if fig_id == "Fig. 4":
+        if false_s2 is not None and np.isfinite(false_s2):
+            return "SUPPORTS" if false_s2 >= 0.05 else "CONTRADICTS" if false_s2 < 0.01 else "PARTIALLY SUPPORTS"
+    if fig_id == "Fig. 5":
+        if vs is not None and vc is not None and np.isfinite(vs) and np.isfinite(vc):
+            return "SUPPORTS" if vc < vs else "PARTIAL"
+    if fig_id == "Fig. 6":
+        if vs is not None and vc is not None and np.isfinite(vs) and np.isfinite(vc):
+            return "SUPPORTS" if vc < vs - 0.05 else "PARTIALLY SUPPORTS" if vc <= vs else "CONTRADICTS"
+    if fig_id == "Fig. 7":
+        g = evidence.get("ee_gain_pct_mean")
+        if g is not None and np.isfinite(g):
+            return "SUPPORTS" if g >= 5.0 else "PARTIAL"
+    if fig_id == "Fig. 8":
+        return "PARTIAL"
+    if fig_id == "Fig. 9":
+        return "PARTIAL"
+    return "PARTIAL"
+
+
 def write_index(evidence: dict) -> None:
     lines = ["# ICC figure index", "",
              "Generated from stored raw data. Hypothesis verdicts use the numerical evidence only.", ""]
-    natural_mm = evidence.get("natural_mismatch_mean")
-    false_s2 = evidence.get("false_s2")
     for fig in FIGURES:
-        verdict = "PARTIAL"
-        if fig["id"] == "Fig. 1":
-            if natural_mm is not None and np.isfinite(natural_mm):
-                verdict = "SUPPORTS" if natural_mm >= 1.0 else "CONTRADICTS" if natural_mm < 0.2 else "PARTIALLY SUPPORTS"
-        elif fig["id"] == "Fig. 4":
-            if false_s2 is not None and np.isfinite(false_s2):
-                verdict = "SUPPORTS" if false_s2 >= 0.05 else "CONTRADICTS" if false_s2 < 0.01 else "PARTIALLY SUPPORTS"
-        elif fig["id"] == "Fig. 6":
-            vs, vc = evidence.get("sampled_viol"), evidence.get("cp_viol")
-            if vs is not None and vc is not None and np.isfinite(vs) and np.isfinite(vc):
-                verdict = "SUPPORTS" if vc < vs - 0.05 else "PARTIALLY SUPPORTS" if vc <= vs else "CONTRADICTS"
-        key = fig.get("key_finding", "")
+        sample_note = fig["sample"]
+        if fig["id"] == "Fig. 2":
+            sample_note = f"{fig['sample']} (9 asymmetry levels × 40 realisations of synthetic logistic tilt)"
         lines += [
             f"## {fig['id']} — `{fig['file']}`",
             f"- **Scientific question:** {fig['question']}",
             f"- **Baselines:** {fig['baselines']}",
             f"- **Axes:** x = {fig['x']}; y = {fig['y']}",
-            f"- **Sample size:** {fig['sample']}",
-            f"- **Hypothesis verdict:** {verdict}",
+            f"- **Sample size:** {sample_note}",
+            f"- **Key numerical finding:** {_key_finding(fig['id'], evidence)}",
+            f"- **Hypothesis verdict:** {_verdict(fig['id'], evidence)}",
             f"- **Recommended section:** {fig['section']}",
             "",
         ]
@@ -788,9 +909,36 @@ def write_index(evidence: dict) -> None:
     lines += ["## Recommended 5–7 manuscript items (space-limited ICC)", ""]
     for item in rec:
         lines.append(f"- {item}")
-    lines += ["", "Do not include Fig. 9 panels that merely restate Table III, or Fig. 8 if the map is dominated by a single colour.", ""]
+    lines += [
+        "",
+        "Do not include Fig. 9 panels that merely restate Table III, or Fig. 8 if the map is dominated by a single colour.",
+        "",
+        "## Scope notes (do not silently over-claim)",
+        "",
+        "- Natural N=500 Monte Carlo omits `exact_efim_cutting_plane_psl_ee` (Dinkelbach+cutting-plane). EE is reported from the frontier and ablation.",
+        "- Numerology holds Δf=15 kHz fixed so occupied bandwidth B=KΔf scales with K. K=256 ran cheap methods only (no PSL SOCs).",
+        "- Archival format is CSV + JSON configs. Power-vector NPZ dumps are not stored.",
+        "",
+    ]
     (ICC_SUM / "FIGURE_INDEX.md").write_text("\n".join(lines))
-    (ICC_ROOT_INDEX := Path("results/icc_paper/FIGURE_INDEX.md")).write_text("\n".join(lines))
+    Path("results/icc_paper/FIGURE_INDEX.md").write_text("\n".join(lines))
+
+
+def _artifact_inventory() -> list[str]:
+    root = Path("results/icc_paper")
+    if not root.exists():
+        return []
+    return sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
+
+
+def _raw_row_count() -> int:
+    total = 0
+    for path in sorted(ICC_RAW.glob("*_raw.csv")):
+        try:
+            total += max(sum(1 for _ in path.open()) - 1, 0)
+        except OSError:
+            continue
+    return total
 
 
 def write_final(evidence: dict, pytest_line: str, elapsed_note: str) -> None:
@@ -845,20 +993,29 @@ controlled mechanism experiment only.
 ## 4–18. Numerical evidence (auto)
 
 - Natural-channel sample size: {evidence.get('natural_n')}
+- Natural-channel methods: {evidence.get('natural_methods')}
+- Natural-channel EE method included?: {evidence.get('natural_has_ee')}
 - Natural-channel mean FIM mismatch (conventional S2): {_fmt(mm, 4)} %
 - Natural-channel median FIM mismatch: {_fmt(evidence.get('natural_mismatch_median'), 4)} %
+- Natural-channel p95 / max FIM mismatch: {_fmt(evidence.get('natural_mismatch_p95'), 4)} % / {_fmt(evidence.get('natural_mismatch_max'), 4)} %
+- Mismatch >1%/2%/5%/10%: {_pct(evidence.get('mismatch_gt_1'))} / {_pct(evidence.get('mismatch_gt_2'))} / {_pct(evidence.get('mismatch_gt_5'))} / {_pct(evidence.get('mismatch_gt_10'))} of realisations
 - Pearson r(|f_bar|, ε_J): {_fmt(evidence.get('pearson_r'), 3)}
 - Spearman ρ: {_fmt(evidence.get('spearman_rho'), 3)}
-- Conventional false sensing-feasibility rate: {_pct(false_s2) if false_s2==false_s2 else 'n/a'}
-- Exact-EFIM false sensing-feasibility rate: {_pct(evidence.get('false_ef')) if evidence.get('false_ef')==evidence.get('false_ef') else 'n/a'}
+- Conventional false sensing-feasibility rate (solver tolerance): {_pct(false_s2)}
+- Conventional *material* (>1% FIM shortfall) false-feasibility: {_pct(evidence.get('material_false_s2_1pct'))}
+- Exact-EFIM false sensing-feasibility rate: {_pct(evidence.get('false_ef'))}
 - Conventional vs exact rate ΔR mean: {_fmt((evidence.get('rate_delta') or {}).get('mean'), 4)} %
-- Sampled-PSL dense violation rate: {_pct(evidence.get('sampled_viol')) if evidence.get('sampled_viol')==evidence.get('sampled_viol') else 'n/a'}
-- Cutting-plane dense violation rate: {_pct(evidence.get('cp_viol')) if evidence.get('cp_viol')==evidence.get('cp_viol') else 'n/a'}
+- Sampled-PSL dense violation rate: {_pct(evidence.get('sampled_viol'))}
+- Conventional S2+PSL dense violation rate: {_pct(evidence.get('s2_psl_viol'))}
+- Cutting-plane dense violation rate: {_pct(evidence.get('cp_viol'))}
 - Mean cutting-plane iterations: {_fmt(evidence.get('cp_iters'), 3)}
+- Mean cutting-plane solve time: {_fmt(evidence.get('cp_runtime_s'), 3)} s
 - Empirical FIM–PSL feasibility boundary (Γ_J/J_max, 50% channels): {_fmt(evidence.get('fim_psl_boundary_frac'), 3)}
 - EE gain vs max-rate (mean %): {_fmt(evidence.get('ee_gain_pct_mean'), 3)}
 - Associated rate reduction (mean %): {_fmt(evidence.get('ee_rate_loss_pct_mean'), 3)}
 - Mismatch by K: {evidence.get('mismatch_by_K')}
+- Numerology methods by K: {evidence.get('numerology_methods_by_K')}
+- Optimisation-result rows stored: {_raw_row_count()}
 
 {elapsed_note}
 
@@ -920,6 +1077,13 @@ Strongest scientifically defensible ICC claim:
 - Controlled tilt is synthetic.
 - No published Yang/Iqbal (or other paper) baseline is plotted, because none was implemented.
 - Dinkelbach, SOCs, water-filling and CRB optimisation are not claimed as novel.
+- Natural N=500 Monte Carlo omits `exact_efim_cutting_plane_psl_ee` (present in frontier and ablation).
+- Numerology holds Δf fixed so B=KΔf; K=256 ran cheap methods only (no PSL SOCs).
+- Power-vector NPZ dumps are not stored; CSVs are the archival format.
+
+## Files under results/icc_paper/
+
+{chr(10).join('- ' + p for p in _artifact_inventory()) or '- none'}
 
 ## Missing raw files
 
@@ -937,8 +1101,9 @@ def write_figure_readme() -> None:
             "cmd": "python -m experiments.icc_natural_tdl_mc",
             "raw": "icc_natural_tdl_mc_raw.csv",
             "methods": "conventional_s2, exact_efim",
-            "x": "|f_bar_P|", "y": "epsilon_J",
+            "x": "|f_bar_P| [kHz]", "y": "epsilon_J [%]",
             "ci": "none (scatter)", "channel": "exponential PDP TDL",
+            "n": "500",
             "target": "Γ_J = 0.5 J_max (unknown-amplitude), uniform-spectrum PSL request for PSL methods",
             "psl": "independent dense grid, mainlobe exclusion 1/B",
             "question": "Natural asymmetry vs conventional S2 mismatch",
@@ -947,12 +1112,109 @@ def write_figure_readme() -> None:
             "cmd": "python -m experiments.icc_controlled_asymmetry",
             "raw": "icc_controlled_asymmetry_raw.csv",
             "methods": "conventional_s2, exact_efim",
-            "x": "asymmetry a", "y": "epsilon_J",
+            "x": "asymmetry a", "y": "epsilon_J [%]",
             "ci": "Student-t 95% interval across realisations at each a",
             "channel": "controlled logistic tilt (NOT a realistic model)",
+            "n": "9 levels × 40 realisations",
             "target": "Γ_J = 0.5 J_max",
             "psl": "evaluated, not constrained in this sweep",
             "question": "Mechanism: tilt → mismatch",
+        },
+        "fig2b_controlled_centroid": {
+            "cmd": "python -m experiments.icc_controlled_asymmetry",
+            "raw": "icc_controlled_asymmetry_raw.csv",
+            "methods": "conventional_s2, exact_efim",
+            "x": "asymmetry a", "y": "|f_bar_P| [kHz]",
+            "ci": "Student-t 95% interval",
+            "channel": "controlled logistic tilt (NOT a realistic model)",
+            "n": "9 levels × 40 realisations",
+            "target": "Γ_J = 0.5 J_max",
+            "psl": "evaluated, not constrained",
+            "question": "Does tilt displace the spectral centroid?",
+        },
+        "fig3_rate_vs_ranging": {
+            "cmd": "python -m experiments.icc_frontier",
+            "raw": "icc_frontier_raw.csv",
+            "methods": "water_filling, conventional_s2, conventional_s2_psl, exact_efim, exact_efim_cutting_plane_psl, exact_efim_cutting_plane_psl_ee",
+            "x": "target range RMSE [m]", "y": "rate [Mbit/s]",
+            "ci": "mean across 12 TDL channels",
+            "channel": "exponential PDP TDL",
+            "n": "12 TDL × FIM-fraction sweep",
+            "target": "common unknown-amplitude Γ_J (swept)",
+            "psl": "uniform-spectrum request; dense validation",
+            "question": "Rate cost of a common physical ranging requirement",
+        },
+        "fig4_actual_sensing_feasibility": {
+            "cmd": "python -m experiments.icc_natural_tdl_mc",
+            "raw": "icc_natural_tdl_mc_raw.csv",
+            "methods": "conventional_s2, exact_efim",
+            "x": "J_required", "y": "J_actual,unknown",
+            "ci": "none (scatter); identity line is the feasibility boundary",
+            "channel": "exponential PDP TDL",
+            "n": "500",
+            "target": "Γ_J = 0.5 J_max",
+            "psl": "n/a for this figure",
+            "question": "False sensing feasibility under conventional S2",
+        },
+        "fig5_dense_psl": {
+            "cmd": "python -m experiments.icc_frontier",
+            "raw": "icc_frontier_raw.csv",
+            "methods": "water_filling, conventional_s2, conventional_s2_psl, exact_efim, exact_efim_sampled_psl, exact_efim_cutting_plane_psl",
+            "x": "Γ_J / J_max", "y": "PSL [dB] (dense solid, opt-grid dotted)",
+            "ci": "mean across 12 TDL channels",
+            "channel": "exponential PDP TDL",
+            "n": "12 TDL channels",
+            "target": "swept Γ_J / J_max with uniform-spectrum PSL request",
+            "psl": "independent dense grid is the paper claim",
+            "question": "Dense-grid ambiguity vs ranging requirement",
+        },
+        "fig6_cutting_plane_refinement": {
+            "cmd": "python -m experiments.icc_cutting_plane_mc",
+            "raw": "icc_cutting_plane_mc_raw.csv",
+            "methods": "conventional_s2_psl, exact_efim_sampled_psl, exact_efim_cutting_plane_psl",
+            "x": "method / PSL margin [dB]", "y": "dense violation rate / empirical CDF",
+            "ci": "empirical rate / CDF, N=200",
+            "channel": "exponential PDP TDL",
+            "n": "200",
+            "target": "Γ_J = 0.5 J_max, uniform-spectrum PSL",
+            "psl": "independent dense grid, tolerance 0.25 dB",
+            "question": "Does cutting-plane remove dense-grid PSL misses?",
+        },
+        "fig7_ee_vs_ranging": {
+            "cmd": "python -m experiments.icc_frontier",
+            "raw": "icc_frontier_raw.csv",
+            "methods": "water_filling, conventional_s2_psl, exact_efim_cutting_plane_psl, exact_efim_cutting_plane_psl_ee",
+            "x": "target range RMSE [m]", "y": "EE [Mbit/J]",
+            "ci": "mean across 12 TDL channels",
+            "channel": "exponential PDP TDL",
+            "n": "12 TDL channels",
+            "target": "swept unknown-amplitude Γ_J + cutting-plane PSL for proposed/EE",
+            "psl": "uniform-spectrum request; dense validation",
+            "question": "EE gain vs rate loss under exact EFIM + dense PSL",
+        },
+        "fig8_feasibility_map": {
+            "cmd": "python -m experiments.icc_feasibility_map",
+            "raw": "icc_feasibility_map_raw.csv",
+            "methods": "proposed cutting-plane (sampled-only rows stored in the same CSV)",
+            "x": "Γ_J / J_max", "y": "requested PSL [dB]",
+            "ci": "majority classification across 4 channels",
+            "channel": "exponential PDP TDL",
+            "n": "4 TDL channels × requirement grid",
+            "target": "joint (Γ_J, PSL) grid",
+            "psl": "independent dense grid",
+            "question": "Joint FIM–PSL feasibility frontier",
+        },
+        "fig9a–d Monte Carlo distributions": {
+            "cmd": "python -m experiments.icc_natural_tdl_mc",
+            "raw": "icc_natural_tdl_mc_raw.csv",
+            "methods": "uniform, water_filling, conventional_s2, conventional_s2_psl, exact_efim, exact_efim_sampled_psl, exact_efim_cutting_plane_psl (EE omitted from N=500)",
+            "x": "method / metric value", "y": "CDF / boxplot",
+            "ci": "empirical distribution, N=500",
+            "channel": "exponential PDP TDL",
+            "n": "500",
+            "target": "Γ_J = 0.5 J_max, uniform-spectrum PSL for PSL methods",
+            "psl": "independent dense grid",
+            "question": "Statistical method comparison on natural TDL channels",
         },
     }
     for name, m in meta.items():
@@ -962,29 +1224,13 @@ def write_figure_readme() -> None:
                    f"- Compared methods: {m['methods']}",
                    f"- x-axis: {m['x']}",
                    f"- y-axis: {m['y']}",
+                   f"- Sample size: {m['n']}",
                    f"- CI method: {m['ci']}",
                    f"- Channel model: {m['channel']}",
                    f"- Physical sensing target: {m['target']}",
                    f"- PSL definition: {m['psl']}",
                    f"- Scientific question: {m['question']}", ""]
     (ICC_FIG / "README.md").write_text("\n".join(blocks))
-    extra = [
-        "",
-        "## Remaining figures",
-        "All other `fig*.pdf`/`fig*.png` files in this directory are produced by the same generator from:",
-        "- `icc_controlled_asymmetry_raw.csv` → Fig. 2",
-        "- `icc_frontier_raw.csv` → Fig. 3, 5, 7",
-        "- `icc_cutting_plane_mc_raw.csv` → Fig. 6",
-        "- `icc_feasibility_map_raw.csv` → Fig. 8",
-        "- `icc_natural_tdl_mc_raw.csv` → Fig. 1, 4, 9",
-        "",
-        "CI method for sweeps: Student-t 95% interval across realisations (or mean across channels for the frontier).",
-        "PSL claims always use the independent dense validation grid.",
-        "Physical sensing target: Γ_J = 0.5 J_max (unknown-amplitude EFIM) unless a sweep varies the fraction.",
-        "Channel: exponential-PDP TDL for natural/frontier/PSL/numerology; logistic tilt for Fig. 2 only.",
-        "",
-    ]
-    (ICC_FIG / "README.md").write_text("\n".join(blocks) + "\n".join(extra))
 
 
 def main() -> None:
@@ -1029,7 +1275,16 @@ def main() -> None:
     evidence = write_claims(natural, ctrl, cp if cp is not None else natural, front, numerology)
     write_index(evidence)
     pytest_line = Path(ICC_SUM / "pytest.txt").read_text() if (ICC_SUM / "pytest.txt").exists() else "see terminal / logs"
-    write_final(evidence, pytest_line, "")
+    runtime_path = ICC_SUM / "suite_runtime_s.txt"
+    if runtime_path.exists():
+        try:
+            elapsed_s = float(runtime_path.read_text().strip().split()[0])
+            elapsed_note = f"- Suite wall-clock: {elapsed_s:.1f} s ({elapsed_s/60:.1f} min)"
+        except (TypeError, ValueError):
+            elapsed_note = f"- Suite wall-clock: {runtime_path.read_text().strip()}"
+    else:
+        elapsed_note = "- Suite wall-clock: n/a (generator-only run)"
+    write_final(evidence, pytest_line, elapsed_note)
     print(f"wrote figures to {ICC_FIG}  notes={NOTES}")
 
 

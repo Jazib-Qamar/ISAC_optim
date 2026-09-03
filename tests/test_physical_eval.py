@@ -52,3 +52,38 @@ def test_dense_psl_flag_uses_validation_grid_not_opt_grid(system64: ISACSystem) 
     )
     # Explicit extra False must win: sampled-grid success is not dense success.
     assert row["dense_psl_satisfied"] is False
+
+
+def test_extra_true_cannot_override_independent_dense_miss(system64: ISACSystem) -> None:
+    from isac.optimization.heuristics import sensing_optimal_allocation
+    from isac.sensing.ambiguity import peak_sidelobe_level_db
+    from isac.optimization.ambiguity_constraints import validation_delay_grid
+
+    power = sensing_optimal_allocation(
+        system64.sensing_weights, system64.total_power_w, system64.peak_power_w
+    )
+    dense = validation_delay_grid(system64, oversampling_factor=16)
+    actual = peak_sidelobe_level_db(
+        power, system64.frequencies_hz, dense, system64.mainlobe_exclusion_s
+    )
+    target = _target(system64, 0.2)
+    # Request a PSL strictly better than this allocation's dense-grid value.
+    tight = target_from_unknown_fim(
+        system64,
+        target.gamma_unknown_fim,
+        j_max=target.j_max,
+        s_max=target.s_max,
+        psl_max_db=actual - 1.0,
+        fim_fraction=0.2,
+        psl_tolerance_db=0.25,
+        optimization_oversampling=4,
+        validation_oversampling=16,
+    )
+    row = evaluate_independent(
+        power, system64, tight,
+        method="exact_efim_sampled_psl", label="sampled",
+        optimizer_model="exact_efim",
+        extra={"dense_psl_satisfied": True},
+    )
+    assert row["dense_psl_satisfied"] is False
+    assert row["validation_grid_psl_db"] > tight.psl_max_db + tight.psl_tolerance_db

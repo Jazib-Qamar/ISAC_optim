@@ -226,12 +226,13 @@ def evaluate_independent(
         psl_applicable = True
         psl_margin = float(target.psl_max_db) - dense_psl
         extra_flag = (extra or {}).get("dense_psl_satisfied")
-        if extra_flag is True:
-            dense_psl_ok = True
-        elif extra_flag is False:
+        independent_ok = bool(dense_psl <= target.psl_max_db + target.psl_tolerance_db)
+        # A solver may veto (False) if sampled-grid success is not dense success.
+        # extra True must never override an independent dense-grid miss.
+        if extra_flag is False:
             dense_psl_ok = False
         else:
-            dense_psl_ok = bool(dense_psl <= target.psl_max_db + target.psl_tolerance_db)
+            dense_psl_ok = independent_ok
 
     row: dict[str, Any] = {
         "method": method,

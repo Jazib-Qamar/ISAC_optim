@@ -2,6 +2,9 @@
 
 Occupied bandwidth scales as K Δf.  Both K and bandwidth are recorded; they are
 not changed silently.  Conclusions are compared qualitatively across K.
+
+K=64 runs the full PSL catalog.  K=128 adds the proposed cutting-plane method
+to the cheap catalog.  K=256 runs cheap methods only (no PSL SOCs).
 """
 
 from __future__ import annotations

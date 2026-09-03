@@ -3,6 +3,10 @@
 No sign-dependent frequency tilt.  Reports centroid magnitude, FIM mismatch,
 false sensing-feasibility, and independent dense-grid PSL.  If natural channels
 produce little mismatch, that is reported honestly.
+
+The Dinkelbach EE method ``exact_efim_cutting_plane_psl_ee`` is omitted here
+(N=500 × cutting-plane+Dinkelbach).  EE under the same constraints is reported
+from ``icc_frontier`` and ``icc_ablation``.
 """
 
 from __future__ import annotations
@@ -44,7 +48,13 @@ def main() -> None:
         )
     print_and_snapshot(
         cfg, EXPERIMENT,
-        {"num_realizations": n, "fim_fraction": args.fim_fraction, "channel": "exponential_tdl", "methods": list(methods)},
+        {
+            "num_realizations": n,
+            "fim_fraction": args.fim_fraction,
+            "channel": "exponential_tdl",
+            "methods": list(methods),
+            "ee_method": "omitted_from_natural_mc_see_frontier_and_ablation",
+        },
     )
     print_header(f"Natural TDL Monte Carlo  n={n}  (no constructed frequency tilt)")
 

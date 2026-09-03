@@ -22,7 +22,10 @@ The repository root is the `isac_ee` project. It is built incrementally:
   + cutting-plane dense-grid PSL), fair conventional-``S_2`` vs exact-EFIM
   comparison under a common physical ranging target, exponential-PDP TDL
   channels, controlled-asymmetry mechanism sweep, and paper artifacts in
-  ``results/icc_paper/``.  No RL.
+  ``results/icc_paper/``.  No RL.  The N=500 natural TDL Monte Carlo omits the
+  Dinkelbach EE method (it is in the frontier and ablation).  Numerology holds
+  ``Δf`` fixed so bandwidth scales with ``K``; ``K=256`` runs cheap methods only.
+
 * Later stages — energy-harvesting MDP, Gymnasium environment, safe projection,
   SAC / PDS / structure-aware / optimizer-guided agents.
 
@@ -48,6 +51,13 @@ isac/optimization/fim_constraints.py    DCP unknown-amplitude FIM (quad_over_lin
 isac/optimization/ambiguity_constraints.py  sampled-grid PSL SOC builder
 isac/optimization/cutting_plane.py      optional PSL constraint generation
 isac/optimization/kkt_analysis.py       G-gradient identity and stationarity residuals
+isac/optimization/proposed.py           ICC proposed method: exact EFIM + cutting-plane PSL
+isac/channels/tdl.py                    exponential-PDP TDL (natural frequency-selective channels)
+isac/evaluation/physical.py             independent claimed-vs-actual sensing / dense-PSL evaluator
+isac/evaluation/icc_suite.py            fair method catalog (S2 vs exact EFIM vs PSL vs EE)
+isac/baselines/{base,internal}.py       internal baselines only (no published-paper labels)
+experiments/icc_*.py                    ICC Monte Carlo, mechanism, frontier, numerology, paper generator
+results/icc_paper/                      figures, tables, raw CSVs, config snapshots, FIGURE_INDEX.md
 experiments/exp10 ... exp15             Stage 2.5 experiments (see below)
 results/stage2_5/<experiment>/          CSV tables and PNG figures
 isac/optimization/heuristics.py     edge-weighted and sensing-optimal heuristic allocations
