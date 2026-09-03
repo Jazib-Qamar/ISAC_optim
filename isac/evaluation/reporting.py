@@ -24,7 +24,7 @@ def print_header(title: str, width: int = 78) -> None:
 def print_config(cfg: DefaultConfig) -> None:
     """Print every configuration section with derived quantities."""
     print_header("Configuration")
-    for section_name in ("ofdm", "channel", "sensing", "energy", "ambiguity", "optimization", "simulation"):
+    for section_name in ("ofdm", "channel", "tdl", "sensing", "energy", "ambiguity", "optimization", "simulation"):
         section = getattr(cfg, section_name)
         print(f"[{section_name}]")
         for field in dataclasses.fields(section):

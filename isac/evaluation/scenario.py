@@ -8,8 +8,9 @@ from pathlib import Path
 
 import numpy as np
 
-from configs.default import ChannelConfig, DefaultConfig, SimulationConfig, default_config
+from configs.default import ChannelConfig, DefaultConfig, OFDMConfig, SimulationConfig, default_config
 from isac.channels.rayleigh import rayleigh_channel
+from isac.channels.tdl import tdl_channel
 from isac.communication.rate import channel_gain
 from isac.sensing.frequencies import centered_subcarrier_frequencies
 from isac.system import ISACSystem
@@ -24,6 +25,40 @@ def build_system(cfg: DefaultConfig, rng: np.random.Generator, total_power_w: fl
     """Draw a channel and bundle it with the configuration."""
     gain = draw_channel_gain(cfg, rng)
     return gain, ISACSystem.from_config(cfg, gain, total_power_w=total_power_w)
+
+
+def draw_tdl_channel_gain(cfg: DefaultConfig, rng: np.random.Generator) -> np.ndarray:
+    """Exponential-PDP TDL realisation ``|h_k|^2`` including the configured path gain.
+
+    No sign-dependent frequency tilt is applied.  This is the *natural*
+    frequency-selective channel used by the ICC Monte Carlo.
+    """
+    freqs = centered_subcarrier_frequencies(cfg.ofdm.num_subcarriers, cfg.ofdm.subcarrier_spacing_hz)
+    h = tdl_channel(
+        freqs,
+        rng,
+        rms_delay_spread_s=cfg.tdl.rms_delay_spread_s,
+        tap_spacing_s=cfg.tdl.tap_spacing_s,
+        num_taps=cfg.tdl.resolved_num_taps(),
+        mean_gain=cfg.channel.path_gain,
+    )
+    return channel_gain(h)
+
+
+def build_tdl_system(
+    cfg: DefaultConfig,
+    rng: np.random.Generator,
+    total_power_w: float | None = None,
+) -> tuple[np.ndarray, ISACSystem]:
+    """Natural TDL counterpart of :func:`build_system`."""
+    gain = draw_tdl_channel_gain(cfg, rng)
+    return gain, ISACSystem.from_config(cfg, gain, total_power_w=total_power_w)
+
+
+def with_num_subcarriers(cfg: DefaultConfig, num_subcarriers: int) -> DefaultConfig:
+    """Clone ``cfg`` with a new ``K``, keeping ``Δf`` (occupied bandwidth scales)."""
+    ofdm = dataclasses.replace(cfg.ofdm, num_subcarriers=int(num_subcarriers))
+    return dataclasses.replace(cfg, ofdm=ofdm)
 
 
 def draw_asymmetric_channel_gain(
@@ -66,6 +101,37 @@ def build_asymmetric_system(
 ) -> tuple[np.ndarray, ISACSystem]:
     """Asymmetric-channel counterpart of :func:`build_system`."""
     gain = draw_asymmetric_channel_gain(cfg, rng, tilt=tilt, strong_side=strong_side)
+    return gain, ISACSystem.from_config(cfg, gain, total_power_w=total_power_w)
+
+
+def draw_controlled_tilt_channel_gain(
+    cfg: DefaultConfig,
+    rng: np.random.Generator,
+    *,
+    asymmetry: float,
+    strong_side: str = "negative",
+) -> np.ndarray:
+    """Controlled-mechanism tilt.  ``asymmetry=0`` is untilted Rayleigh (not a TDL).
+
+    ``asymmetry`` is the logistic steepness of :func:`draw_asymmetric_channel_gain`.
+    This is **not** a realistic channel model; it is a cause-and-effect knob.
+    """
+    if asymmetry < 0.0:
+        raise ValueError("asymmetry must be non-negative")
+    if asymmetry == 0.0:
+        return draw_channel_gain(cfg, rng)
+    return draw_asymmetric_channel_gain(cfg, rng, tilt=asymmetry, strong_side=strong_side)
+
+
+def build_controlled_tilt_system(
+    cfg: DefaultConfig,
+    rng: np.random.Generator,
+    *,
+    asymmetry: float,
+    strong_side: str = "negative",
+    total_power_w: float | None = None,
+) -> tuple[np.ndarray, ISACSystem]:
+    gain = draw_controlled_tilt_channel_gain(cfg, rng, asymmetry=asymmetry, strong_side=strong_side)
     return gain, ISACSystem.from_config(cfg, gain, total_power_w=total_power_w)
 
 

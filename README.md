@@ -18,6 +18,11 @@ The repository root is the `isac_ee` project. It is built incrementally:
   (convex quadratic-over-linear), sampled-grid PSL second-order cones,
   cutting-plane PSL generation, dense-grid PSL verification, and KKT analysis
   of the effective sensing weight ``(f_k - f_bar_P)^2``.
+* **ICC experimental package (done)** — production proposed solver (exact EFIM
+  + cutting-plane dense-grid PSL), fair conventional-``S_2`` vs exact-EFIM
+  comparison under a common physical ranging target, exponential-PDP TDL
+  channels, controlled-asymmetry mechanism sweep, and paper artifacts in
+  ``results/icc_paper/``.  No RL.
 * Later stages — energy-harvesting MDP, Gymnasium environment, safe projection,
   SAC / PDS / structure-aware / optimizer-guided agents.
 
@@ -89,11 +94,22 @@ python experiments/exp12_asymmetric_exact_fim.py       # 2.5 linear S(P) vs exac
 python experiments/exp13_kkt_validation.py             # 2.5 KKT weights and residuals
 python experiments/exp14_psl_cutting_plane.py          # 2.5 cutting-plane PSL
 python experiments/exp15_monte_carlo_stage25.py        # 2.5 Monte Carlo (ordinary + asymmetric)
+python -m experiments.icc_run_all                      # ICC paper suite -> results/icc_paper/
+python -m experiments.icc_generate_paper               # regenerate figures/tables from stored CSVs
 ```
 
+ICC paper-facing outputs live only in ``results/icc_paper/`` (figures, tables,
+raw CSVs, config snapshots, ``FIGURE_INDEX.md``, ``summary/``).  Exploratory
+Stage 1/2/2.5 figures stay under ``results/stage2/`` and ``results/stage2_5/``.
+Use ``python -m experiments.icc_run_all --quick`` for a short smoke run.
+
+Every ICC figure is regenerable from ``results/icc_paper/raw_data/`` without
+re-solving.  The *proposed* ICC method is exact unknown-amplitude EFIM plus
+cutting-plane dense-grid PSL; a sampled-grid primal that fails independent
+dense validation is not labelled PSL-feasible.
+
 Every experiment accepts `--seed` and `--output-dir`, prints the configuration,
-saves raw CSV and figures under `results/stage2/<experiment>/`, and records
-infeasible or failed solves instead of discarding them.
+saves raw CSV and figures, and records infeasible or failed solves instead of discarding them.
 
 ## Model summary
 

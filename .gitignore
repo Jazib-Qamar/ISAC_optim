@@ -10,3 +10,4 @@ dist/
 results/*
 !results/stage2/
 !results/stage2_5/
+!results/icc_paper/

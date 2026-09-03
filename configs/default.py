@@ -15,6 +15,7 @@ Conventions
 from __future__ import annotations
 
 import cmath
+import math
 from dataclasses import dataclass, field
 
 SPEED_OF_LIGHT_M_PER_S: float = 299_792_458.0
@@ -251,6 +252,8 @@ class AmbiguityConfig:
     mainlobe_exclusion_factor: float = 1.0
     optimization_oversampling_factor: int = 4
     validation_oversampling_factor: int = 32
+    cutting_plane_max_iterations: int = 20
+    psl_tolerance_db: float = 0.25
 
     def __post_init__(self) -> None:
         if self.oversampling_factor < 2:
@@ -261,6 +264,10 @@ class AmbiguityConfig:
             raise ValueError("optimization_oversampling_factor must be at least 2")
         if self.validation_oversampling_factor < self.optimization_oversampling_factor:
             raise ValueError("validation_oversampling_factor must be >= optimization_oversampling_factor")
+        if self.cutting_plane_max_iterations < 1:
+            raise ValueError("cutting_plane_max_iterations must be at least 1")
+        if self.psl_tolerance_db < 0.0:
+            raise ValueError("psl_tolerance_db must be non-negative")
 
 
 @dataclass(frozen=True)
@@ -298,6 +305,7 @@ class OptimizationConfig:
     dinkelbach_rel_tolerance: float = 1e-8
     rate_fraction_of_water_filling: float = 0.9
     sensing_fraction_of_maximum: float = 0.6
+    fim_fraction_of_maximum: float = 0.5
 
     def __post_init__(self) -> None:
         if not self.solver_preference:
@@ -312,6 +320,57 @@ class OptimizationConfig:
             raise ValueError("rate_fraction_of_water_filling must lie in [0, 1]")
         if not 0.0 <= self.sensing_fraction_of_maximum <= 1.0:
             raise ValueError("sensing_fraction_of_maximum must lie in [0, 1]")
+        if not 0.0 <= self.fim_fraction_of_maximum <= 1.0:
+            raise ValueError("fim_fraction_of_maximum must lie in [0, 1]")
+
+
+@dataclass(frozen=True)
+class TDLConfig:
+    """Exponential-PDP tapped-delay-line small-scale fading (natural frequency selectivity).
+
+    This model does **not** apply a positive/negative-frequency gain tilt.
+    Uncorrelated taps with a causal exponential PDP yield a frequency-flat
+    *average* transfer function ``E[|H(f_k)|^2]``; individual realisations are
+    frequency-selective.  Keep this separate from the controlled logistic tilt
+    used only as a mechanism experiment.
+
+    Attributes
+    ----------
+    num_taps:
+        Number of delay taps ``L``.  If ``None``, set from the RMS delay spread
+        and tap spacing so that the PDP covers ``coverage_rms_multiples`` RMS
+        delay spreads.
+    rms_delay_spread_s:
+        RMS delay spread ``τ_rms`` [s] of the exponential PDP
+        ``P(τ) ∝ exp(-τ / τ_rms)``.
+    tap_spacing_s:
+        Tap spacing ``Δτ`` [s].  Independent of the OFDM sampling period unless
+        the caller chooses it that way.
+    coverage_rms_multiples:
+        PDP support in units of ``τ_rms`` when ``num_taps`` is omitted.
+    """
+
+    num_taps: int | None = None
+    rms_delay_spread_s: float = 300e-9
+    tap_spacing_s: float = 50e-9
+    coverage_rms_multiples: float = 6.0
+
+    def __post_init__(self) -> None:
+        if self.num_taps is not None and self.num_taps < 1:
+            raise ValueError("num_taps must be at least 1")
+        if self.rms_delay_spread_s <= 0.0:
+            raise ValueError("rms_delay_spread_s must be positive")
+        if self.tap_spacing_s <= 0.0:
+            raise ValueError("tap_spacing_s must be positive")
+        if self.coverage_rms_multiples <= 0.0:
+            raise ValueError("coverage_rms_multiples must be positive")
+
+    def resolved_num_taps(self) -> int:
+        """Number of taps after applying the coverage rule."""
+        if self.num_taps is not None:
+            return int(self.num_taps)
+        span = self.coverage_rms_multiples * self.rms_delay_spread_s
+        return max(2, int(math.ceil(span / self.tap_spacing_s)) + 1)
 
 
 @dataclass(frozen=True)
@@ -328,6 +387,7 @@ class DefaultConfig:
 
     ofdm: OFDMConfig = field(default_factory=OFDMConfig)
     channel: ChannelConfig = field(default_factory=ChannelConfig)
+    tdl: TDLConfig = field(default_factory=TDLConfig)
     sensing: SensingConfig = field(default_factory=SensingConfig)
     energy: EnergyConfig = field(default_factory=EnergyConfig)
     ambiguity: AmbiguityConfig = field(default_factory=AmbiguityConfig)
