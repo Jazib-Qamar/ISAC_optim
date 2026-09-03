@@ -1,0 +1,11 @@
+## Ablation study
+
+| Component | Rate [Mbit/s] | Unknown FIM | Dense PSL [dB] | EE [Mbit/J] | Phys. feas. [%] | Dense PSL feas. [%] | Runtime [s] |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Water-filling | 5.161 | 1.9791e+18 | -13.4 | 1.537 | 0.00% | 95.00% | 0.000201 |
+| Conventional $S_2$ | 5.138 | 2.3250e+18 | -10.6 | 1.531 | 5.00% | 0.00% | 0.00784 |
+| Conventional $S_2$+PSL | 5.12 | 2.3277e+18 | -13 | 1.525 | 5.00% | 90.00% | 0.483 |
+| Exact EFIM | 5.137 | 2.3424e+18 | -10.6 | 1.53 | 100.00% | 0.00% | 0.00948 |
+| Exact EFIM+sampled PSL | 5.119 | 2.3424e+18 | -13 | 1.525 | 100.00% | 100.00% | 0.497 |
+| Exact EFIM+cutting-plane PSL | 5.119 | 2.3424e+18 | -13 | 1.525 | 100.00% | 100.00% | 0.499 |
+| Exact EFIM+cutting-plane PSL+EE | 4.911 | 2.3424e+18 | -13 | 1.569 | 100.00% | 100.00% | 1.08 |

@@ -71,11 +71,12 @@
   "run": {
     "K": [
       64,
-      128
+      128,
+      256
     ],
     "delta_f_hz": 15000.0,
     "bandwidth_note": "B = K * Delta_f (Delta_f held fixed)",
-    "n_per_K": 8,
+    "n_per_K": 40,
     "fim_fraction": 0.5
   }
 }

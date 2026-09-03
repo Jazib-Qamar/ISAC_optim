@@ -1,2 +1,2 @@
-cmd=/workspace/.venv/bin/python -m experiments.icc_feasibility_map --quick
+cmd=/workspace/.venv/bin/python -m experiments.icc_feasibility_map
 returncode=0

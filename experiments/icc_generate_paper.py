@@ -968,6 +968,23 @@ def write_figure_readme() -> None:
                    f"- PSL definition: {m['psl']}",
                    f"- Scientific question: {m['question']}", ""]
     (ICC_FIG / "README.md").write_text("\n".join(blocks))
+    extra = [
+        "",
+        "## Remaining figures",
+        "All other `fig*.pdf`/`fig*.png` files in this directory are produced by the same generator from:",
+        "- `icc_controlled_asymmetry_raw.csv` → Fig. 2",
+        "- `icc_frontier_raw.csv` → Fig. 3, 5, 7",
+        "- `icc_cutting_plane_mc_raw.csv` → Fig. 6",
+        "- `icc_feasibility_map_raw.csv` → Fig. 8",
+        "- `icc_natural_tdl_mc_raw.csv` → Fig. 1, 4, 9",
+        "",
+        "CI method for sweeps: Student-t 95% interval across realisations (or mean across channels for the frontier).",
+        "PSL claims always use the independent dense validation grid.",
+        "Physical sensing target: Γ_J = 0.5 J_max (unknown-amplitude EFIM) unless a sweep varies the fraction.",
+        "Channel: exponential-PDP TDL for natural/frontier/PSL/numerology; logistic tilt for Fig. 2 only.",
+        "",
+    ]
+    (ICC_FIG / "README.md").write_text("\n".join(blocks) + "\n".join(extra))
 
 
 def main() -> None:

@@ -69,8 +69,8 @@
     "mainlobe_scale_s": 1.0416666666666667e-06
   },
   "run": {
-    "n_tdl": 4,
-    "n_controlled_tilt": 2,
+    "n_tdl": 20,
+    "n_controlled_tilt": 8,
     "tilt": 4.0,
     "fim_fraction": 0.5,
     "methods": [

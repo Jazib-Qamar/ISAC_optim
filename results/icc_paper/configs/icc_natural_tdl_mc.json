@@ -69,13 +69,14 @@
     "mainlobe_scale_s": 1.0416666666666667e-06
   },
   "run": {
-    "num_realizations": 25,
+    "num_realizations": 500,
     "fim_fraction": 0.5,
     "channel": "exponential_tdl",
     "methods": [
       "uniform",
       "water_filling",
       "conventional_s2",
+      "conventional_s2_psl",
       "exact_efim",
       "exact_efim_sampled_psl",
       "exact_efim_cutting_plane_psl"

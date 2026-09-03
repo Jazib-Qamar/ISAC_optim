@@ -81,7 +81,7 @@
       5.0,
       6.0
     ],
-    "per_level": 8,
+    "per_level": 40,
     "fim_fraction": 0.5,
     "methods": [
       "uniform",

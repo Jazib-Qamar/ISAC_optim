@@ -1,0 +1,60 @@
+## Natural-channel Monte Carlo statistics
+
+| Method | Metric | N | Mean | Median | Std | 95% CI | P5 | P95 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Uniform | Rate [Mbit/s] | 500 | 4.842 | 4.802 | 1.248 | [4.732, 4.951] | 2.596 | 6.776 |
+| Uniform | EE [Mbit/J] | 500 | 1.442 | 1.43 | 0.3716 | [1.41, 1.475] | 0.7734 | 2.018 |
+| Uniform | Unknown FIM | 500 | 2.026e+18 | 2.026e+18 | 256.3 | [2.026e+18, 2.026e+18] | 2.026e+18 | 2.026e+18 |
+| Uniform | Range RMSE [m] | 500 | 0.1053 | 0.1053 | 0 | [0.1053, 0.1053] | 0.1053 | 0.1053 |
+| Uniform | Dense PSL [dB] | 500 | -13.26 | -13.26 | 1.778e-15 | [-13.26, -13.26] | -13.26 | -13.26 |
+| Uniform | FIM mismatch [%] | 500 | 0 | 0 | 0 | [0, 0] | 0 | 0 |
+| Uniform | Physical sensing feasibility | 500 | 0.00% | — | — | — | — | — |
+| Uniform | Dense PSL feasibility | 500 | 100.00% | — | — | — | — | — |
+| Water-filling | Rate [Mbit/s] | 500 | 4.853 | 4.806 | 1.233 | [4.744, 4.961] | 2.691 | 6.776 |
+| Water-filling | EE [Mbit/J] | 500 | 1.445 | 1.431 | 0.3674 | [1.413, 1.478] | 0.8017 | 2.018 |
+| Water-filling | Unknown FIM | 500 | 2.015e+18 | 2.023e+18 | 1.383e+17 | [2.002e+18, 2.027e+18] | 1.83e+18 | 2.212e+18 |
+| Water-filling | Range RMSE [m] | 500 | 0.1054 | 0.1054 | 0.003088 | [0.1051, 0.1056] | 0.1002 | 0.109 |
+| Water-filling | Dense PSL [dB] | 500 | -13 | -13.28 | 1.458 | [-13.13, -12.87] | -14.41 | -9.963 |
+| Water-filling | FIM mismatch [%] | 500 | 0.7662 | 0.01343 | 2.661 | [0.5324, 1] | 2.34e-05 | 3.397 |
+| Water-filling | Physical sensing feasibility | 500 | 2.40% | — | — | — | — | — |
+| Water-filling | Dense PSL feasibility | 500 | 78.60% | — | — | — | — | — |
+| Conventional $S_2$ | Rate [Mbit/s] | 500 | 4.833 | 4.78 | 1.232 | [4.725, 4.942] | 2.691 | 6.757 |
+| Conventional $S_2$ | EE [Mbit/J] | 500 | 1.44 | 1.424 | 0.3669 | [1.408, 1.472] | 0.8017 | 2.013 |
+| Conventional $S_2$ | Unknown FIM | 500 | 2.329e+18 | 2.342e+18 | 6.517e+16 | [2.323e+18, 2.334e+18] | 2.275e+18 | 2.342e+18 |
+| Conventional $S_2$ | Range RMSE [m] | 500 | 0.09787 | 0.09794 | 0.0005398 | [0.09782, 0.09792] | 0.09794 | 0.09794 |
+| Conventional $S_2$ | Dense PSL [dB] | 500 | -10.39 | -10.53 | 0.7607 | [-10.46, -10.33] | -11.09 | -9.223 |
+| Conventional $S_2$ | FIM mismatch [%] | 500 | 0.7337 | 0.0118 | 2.591 | [0.506, 0.9613] | 1.992e-05 | 3.317 |
+| Conventional $S_2$ | Physical sensing feasibility | 500 | 12.00% | — | — | — | — | — |
+| Conventional $S_2$ | Dense PSL feasibility | 500 | 0.00% | — | — | — | — | — |
+| Conventional $S_2$+PSL | Rate [Mbit/s] | 500 | 4.812 | 4.763 | 1.236 | [4.704, 4.921] | 2.623 | 6.737 |
+| Conventional $S_2$+PSL | EE [Mbit/J] | 500 | 1.433 | 1.419 | 0.3682 | [1.401, 1.466] | 0.7812 | 2.007 |
+| Conventional $S_2$+PSL | Unknown FIM | 500 | 2.328e+18 | 2.342e+18 | 4.615e+16 | [2.324e+18, 2.332e+18] | 2.271e+18 | 2.342e+18 |
+| Conventional $S_2$+PSL | Range RMSE [m] | 500 | 0.09794 | 0.09794 | 5.89e-12 | [0.09794, 0.09794] | 0.09794 | 0.09794 |
+| Conventional $S_2$+PSL | Dense PSL [dB] | 500 | -13.03 | -13.02 | 0.04718 | [-13.03, -13.02] | -13.1 | -13.01 |
+| Conventional $S_2$+PSL | FIM mismatch [%] | 500 | 0.6235 | 0.01264 | 1.97 | [0.4504, 0.7966] | 1.579e-05 | 3.05 |
+| Conventional $S_2$+PSL | Physical sensing feasibility | 500 | 10.40% | — | — | — | — | — |
+| Conventional $S_2$+PSL | Dense PSL feasibility | 500 | 96.00% | — | — | — | — | — |
+| Exact EFIM | Rate [Mbit/s] | 500 | 4.833 | 4.78 | 1.233 | [4.724, 4.941] | 2.691 | 6.757 |
+| Exact EFIM | EE [Mbit/J] | 500 | 1.439 | 1.424 | 0.3672 | [1.407, 1.472] | 0.8017 | 2.013 |
+| Exact EFIM | Unknown FIM | 500 | 2.345e+18 | 2.342e+18 | 2.426e+16 | [2.343e+18, 2.347e+18] | 2.342e+18 | 2.342e+18 |
+| Exact EFIM | Range RMSE [m] | 500 | 0.09776 | 0.09794 | 0.0006565 | [0.0977, 0.09782] | 0.09709 | 0.09794 |
+| Exact EFIM | Dense PSL [dB] | 500 | -10.38 | -10.52 | 0.7671 | [-10.44, -10.31] | -11.05 | -9.171 |
+| Exact EFIM | FIM mismatch [%] | 500 | 0.2622 | 0.005481 | 0.8861 | [0.1843, 0.3401] | 7.781e-06 | 1.456 |
+| Exact EFIM | Physical sensing feasibility | 500 | 100.00% | — | — | — | — | — |
+| Exact EFIM | Dense PSL feasibility | 500 | 0.00% | — | — | — | — | — |
+| Exact EFIM+sampled PSL | Rate [Mbit/s] | 500 | 4.811 | 4.762 | 1.238 | [4.702, 4.92] | 2.617 | 6.737 |
+| Exact EFIM+sampled PSL | EE [Mbit/J] | 500 | 1.433 | 1.418 | 0.3687 | [1.401, 1.465] | 0.7795 | 2.007 |
+| Exact EFIM+sampled PSL | Unknown FIM | 500 | 2.342e+18 | 2.342e+18 | 2.239e+09 | [2.342e+18, 2.342e+18] | 2.342e+18 | 2.342e+18 |
+| Exact EFIM+sampled PSL | Range RMSE [m] | 500 | 0.0979 | 0.09794 | 0.0001376 | [0.09788, 0.09791] | 0.09773 | 0.09794 |
+| Exact EFIM+sampled PSL | Dense PSL [dB] | 500 | -13.03 | -13.02 | 0.02881 | [-13.03, -13.03] | -13.08 | -13.02 |
+| Exact EFIM+sampled PSL | FIM mismatch [%] | 500 | 0.08764 | 0.002294 | 0.2798 | [0.06306, 0.1122] | 2.873e-06 | 0.4294 |
+| Exact EFIM+sampled PSL | Physical sensing feasibility | 500 | 100.00% | — | — | — | — | — |
+| Exact EFIM+sampled PSL | Dense PSL feasibility | 500 | 97.60% | — | — | — | — | — |
+| Exact EFIM+cutting-plane PSL | Rate [Mbit/s] | 500 | 4.811 | 4.762 | 1.238 | [4.702, 4.919] | 2.617 | 6.737 |
+| Exact EFIM+cutting-plane PSL | EE [Mbit/J] | 500 | 1.433 | 1.418 | 0.3687 | [1.401, 1.465] | 0.7795 | 2.007 |
+| Exact EFIM+cutting-plane PSL | Unknown FIM | 500 | 2.342e+18 | 2.342e+18 | 2.238e+09 | [2.342e+18, 2.342e+18] | 2.342e+18 | 2.342e+18 |
+| Exact EFIM+cutting-plane PSL | Range RMSE [m] | 500 | 0.0979 | 0.09794 | 0.0001376 | [0.09788, 0.09791] | 0.09773 | 0.09794 |
+| Exact EFIM+cutting-plane PSL | Dense PSL [dB] | 500 | -13.04 | -13.02 | 0.03933 | [-13.04, -13.03] | -13.11 | -13.02 |
+| Exact EFIM+cutting-plane PSL | FIM mismatch [%] | 500 | 0.08779 | 0.002244 | 0.2799 | [0.0632, 0.1124] | 2.873e-06 | 0.4294 |
+| Exact EFIM+cutting-plane PSL | Physical sensing feasibility | 500 | 100.00% | — | — | — | — | — |
+| Exact EFIM+cutting-plane PSL | Dense PSL feasibility | 500 | 100.00% | — | — | — | — | — |

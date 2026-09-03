@@ -1,2 +1,2 @@
-cmd=/workspace/.venv/bin/python -m experiments.icc_numerology --quick
+cmd=/workspace/.venv/bin/python -m experiments.icc_numerology
 returncode=0

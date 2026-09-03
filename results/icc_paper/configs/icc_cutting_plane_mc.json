@@ -69,7 +69,7 @@
     "mainlobe_scale_s": 1.0416666666666667e-06
   },
   "run": {
-    "n": 15,
+    "n": 200,
     "fim_fraction": 0.5,
     "methods": [
       "conventional_s2_psl",

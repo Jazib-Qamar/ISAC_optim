@@ -1,2 +1,2 @@
-cmd=/workspace/.venv/bin/python -m experiments.icc_controlled_asymmetry --quick
+cmd=/workspace/.venv/bin/python -m experiments.icc_controlled_asymmetry
 returncode=0

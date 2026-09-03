@@ -1,0 +1,19 @@
+\begin{table}[t]
+\centering
+\caption{Main baseline comparison}
+\label{tab:main}
+\begin{tabular}{lcccccccccc}
+\hline
+Method & Rate [Mbit/s] & EE [Mbit/J] & Tx power [W] & Unknown FIM & Range RMSE [m] & Dense PSL [dB] & |centroid| [kHz] & Phys. sensing? & Dense PSL? & Runtime [s] \\
+\hline
+Uniform & 5.674 & 1.69 & 1 & 2.0256e+18 & 0.1053 & -13.3 & 0 & 0.00% & 100.00% & 1.39e-05 \\
+Water-filling & 5.675 & 1.69 & 1 & 2.0387e+18 & 0.105 & -13.1 & 2.14 & 0.00% & 100.00% & 0.000207 \\
+Conventional $S_2$ & 5.657 & 1.685 & 1 & 2.3423e+18 & 0.09794 & -10.5 & 2.14 & 0.00% & 0.00% & 0.00807 \\
+Conventional $S_2$+PSL & 5.637 & 1.679 & 1 & 2.3423e+18 & 0.09794 & -13 & 2.28 & 0.00% & 100.00% & 0.439 \\
+Exact EFIM & 5.657 & 1.685 & 1 & 2.3424e+18 & 0.09794 & -10.5 & 1.47 & 100.00% & 0.00% & 0.00942 \\
+Exact EFIM+sampled PSL & 5.637 & 1.679 & 1 & 2.3424e+18 & 0.09794 & -13 & 0.978 & 100.00% & 100.00% & 0.491 \\
+Exact EFIM+cutting-plane PSL & 5.637 & 1.679 & 1 & 2.3424e+18 & 0.09794 & -13 & 0.978 & 100.00% & 100.00% & 0.502 \\
+Exact EFIM+cutting-plane PSL+EE & 5.414 & 1.732 & 0.9188 & 2.3424e+18 & 0.09794 & -13 & 0.426 & 100.00% & 100.00% & 0.828 \\
+\hline
+\end{tabular}
+\end{table}

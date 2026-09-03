@@ -1,2 +1,2 @@
-cmd=/workspace/.venv/bin/python -m experiments.icc_generate_paper --quick
-returncode=1
+cmd=/workspace/.venv/bin/python -m experiments.icc_generate_paper
+returncode=0
