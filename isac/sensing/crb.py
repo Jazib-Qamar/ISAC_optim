@@ -89,6 +89,28 @@ def range_crb_from_delay_crb(delay_crb_s2: float) -> float:
     return (SPEED_OF_LIGHT_M_PER_S / 2.0) ** 2 * delay_crb_s2
 
 
+def min_fim_from_delay_crb(max_delay_crb_s2: float) -> float:
+    """Convert ``CRB_tau <= CRB_tau_max`` [s^2] into ``J_tau >= 1 / CRB_tau_max`` [1/s^2]."""
+    if not np.isfinite(max_delay_crb_s2) or max_delay_crb_s2 <= 0.0:
+        raise ValueError("max_delay_crb_s2 must be a positive finite number")
+    return 1.0 / max_delay_crb_s2
+
+
+def min_fim_from_range_rmse(max_range_rmse_m: float) -> float:
+    """Convert ``RMSE_R <= RMSE_max`` [m] into a minimum delay FIM [1/s^2].
+
+    Monostatic geometry ``R = c tau / 2`` gives ``CRB_R = (c/2)^2 CRB_tau`` and
+    ``RMSE_R = sqrt(CRB_R)``, so
+
+        CRB_tau <= (2 RMSE_max / c)^2
+        J_tau   >= 1 / CRB_tau.
+    """
+    if not np.isfinite(max_range_rmse_m) or max_range_rmse_m <= 0.0:
+        raise ValueError("max_range_rmse_m must be a positive finite number")
+    max_delay_crb_s2 = (2.0 * max_range_rmse_m / SPEED_OF_LIGHT_M_PER_S) ** 2
+    return min_fim_from_delay_crb(max_delay_crb_s2)
+
+
 def delay_crb_summary(
     power_w: ArrayLike,
     frequencies_hz: ArrayLike,

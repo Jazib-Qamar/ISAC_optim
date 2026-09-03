@@ -11,6 +11,7 @@ import numpy as np
 from configs.default import ChannelConfig, DefaultConfig, SimulationConfig, default_config
 from isac.channels.rayleigh import rayleigh_channel
 from isac.communication.rate import channel_gain
+from isac.sensing.frequencies import centered_subcarrier_frequencies
 from isac.system import ISACSystem
 
 
@@ -22,6 +23,49 @@ def draw_channel_gain(cfg: DefaultConfig, rng: np.random.Generator) -> np.ndarra
 def build_system(cfg: DefaultConfig, rng: np.random.Generator, total_power_w: float | None = None) -> tuple[np.ndarray, ISACSystem]:
     """Draw a channel and bundle it with the configuration."""
     gain = draw_channel_gain(cfg, rng)
+    return gain, ISACSystem.from_config(cfg, gain, total_power_w=total_power_w)
+
+
+def draw_asymmetric_channel_gain(
+    cfg: DefaultConfig,
+    rng: np.random.Generator,
+    *,
+    tilt: float = 4.0,
+    strong_side: str = "negative",
+) -> np.ndarray:
+    """Rayleigh realisation with a reproducible one-sided spectral tilt.
+
+    The small-scale fading is unmodified; a smooth logistic tilt in frequency
+    multiplies ``|h_k|^2`` so that strong communication subcarriers concentrate
+    on one side of the OFDM band.  The mean gain is renormalised to the
+    the untilted realisation's mean so the path-loss setting is preserved.
+
+    ``tilt`` is the logistic steepness (dimensionless); ``strong_side`` is
+    ``"negative"`` or ``"positive"`` frequency.
+    """
+    if strong_side not in ("negative", "positive"):
+        raise ValueError("strong_side must be 'negative' or 'positive'")
+    if tilt <= 0.0:
+        raise ValueError("tilt must be positive")
+    base = draw_channel_gain(cfg, rng)
+    freqs = centered_subcarrier_frequencies(cfg.ofdm.num_subcarriers, cfg.ofdm.subcarrier_spacing_hz)
+    x = freqs / np.max(np.abs(freqs))
+    sign = 1.0 if strong_side == "negative" else -1.0
+    logistic = 1.0 / (1.0 + np.exp(sign * tilt * x))
+    tilted = base * logistic
+    return tilted * (float(np.mean(base)) / float(np.mean(tilted)))
+
+
+def build_asymmetric_system(
+    cfg: DefaultConfig,
+    rng: np.random.Generator,
+    *,
+    tilt: float = 4.0,
+    strong_side: str = "negative",
+    total_power_w: float | None = None,
+) -> tuple[np.ndarray, ISACSystem]:
+    """Asymmetric-channel counterpart of :func:`build_system`."""
+    gain = draw_asymmetric_channel_gain(cfg, rng, tilt=tilt, strong_side=strong_side)
     return gain, ISACSystem.from_config(cfg, gain, total_power_w=total_power_w)
 
 

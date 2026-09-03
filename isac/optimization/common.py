@@ -182,6 +182,10 @@ def finalize_solution(
     abs_tol: float,
     rel_tol: float,
     extra: dict[str, Any] | None = None,
+    min_unknown_fim: float | None = None,
+    max_psl_db: float | None = None,
+    psl_delay_grid_s: NDArray[np.float64] | None = None,
+    psl_mainlobe_exclusion_s: float | None = None,
 ) -> OptimizationResult:
     """Extract the power vector, verify constraints and recompute physical metrics."""
     if model.x.value is None:
@@ -195,9 +199,20 @@ def finalize_solution(
         max_power_w=max_power_w,
         abs_tol=abs_tol,
         rel_tol=rel_tol,
+        min_unknown_fim=min_unknown_fim,
+        max_psl_db=max_psl_db,
+        psl_delay_grid_s=psl_delay_grid_s,
+        psl_mainlobe_exclusion_s=psl_mainlobe_exclusion_s,
     )
     power = np.maximum(raw_power, 0.0)
     metrics = evaluate_allocation(power, system)
+    requirements: dict[str, float | None] = {
+        "min_rate_se": min_rate_se,
+        "min_sensing_surrogate": min_sensing_surrogate,
+        "max_power_w": system.total_power_w if max_power_w is None else max_power_w,
+        "min_unknown_fim": min_unknown_fim,
+        "max_psl_db": max_psl_db,
+    }
     return OptimizationResult(
         method=method,
         power_allocation=power,
@@ -209,10 +224,6 @@ def finalize_solution(
         objective_value=info.objective_value,
         solver_inaccurate=info.inaccurate,
         raw_min_power_w=float(np.min(raw_power)),
-        requirements={
-            "min_rate_se": min_rate_se,
-            "min_sensing_surrogate": min_sensing_surrogate,
-            "max_power_w": system.total_power_w if max_power_w is None else max_power_w,
-        },
+        requirements=requirements,
         extra=dict(extra or {}),
     )

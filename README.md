@@ -14,6 +14,10 @@ The repository root is the `isac_ee` project. It is built incrementally:
   fallback), independent feasibility verification, exact delay-domain
   ambiguity / PSL evaluation, baseline comparison, Pareto / EE frontiers,
   surrogate and PSL-proxy validation, Monte Carlo and SNR sweeps.
+* **Stage 2.5 (done)** — exact unknown-complex-amplitude delay FIM constraint
+  (convex quadratic-over-linear), sampled-grid PSL second-order cones,
+  cutting-plane PSL generation, dense-grid PSL verification, and KKT analysis
+  of the effective sensing weight ``(f_k - f_bar_P)^2``.
 * Later stages — energy-harvesting MDP, Gymnasium environment, safe projection,
   SAC / PDS / structure-aware / optimizer-guided agents.
 
@@ -33,9 +37,14 @@ isac/energy/power_model.py          P_tx, P_sys = P_c + P_tx/eta_PA, energy per 
 isac/optimization/solver.py         CVXPY solve helper: CLARABEL -> SCS fallback, strict status checks
 isac/optimization/feasibility.py    independent constraint verification, slacks, S_max (greedy LP)
 isac/optimization/common.py         scaled CVXPY model (x = P/P_peak), OptimizationResult
-isac/optimization/min_power.py      Problem A: min sum P  s.t. R >= R_min, S >= Gamma_s, box, budget
-isac/optimization/max_rate.py       Problem B: max R      s.t. S >= Gamma_s, box, budget (+ optional (1-gamma_c) C_WF)
-isac/optimization/dinkelbach.py     Problem C: max R_bps / P_sys via Dinkelbach (F(q*) -> 0)
+isac/optimization/{min_power,max_rate,dinkelbach}.py
+                                        Stage 2 linear-S and Stage 2.5 exact-FIM / PSL
+isac/optimization/fim_constraints.py    DCP unknown-amplitude FIM (quad_over_lin, optional RSOC)
+isac/optimization/ambiguity_constraints.py  sampled-grid PSL SOC builder
+isac/optimization/cutting_plane.py      optional PSL constraint generation
+isac/optimization/kkt_analysis.py       G-gradient identity and stationarity residuals
+experiments/exp10 ... exp15             Stage 2.5 experiments (see below)
+results/stage2_5/<experiment>/          CSV tables and PNG figures
 isac/optimization/heuristics.py     edge-weighted and sensing-optimal heuristic allocations
 isac/evaluation/metrics.py          single source of truth for all physical metrics of an allocation
 isac/evaluation/baselines.py        common baseline evaluator + requirement construction
@@ -74,6 +83,12 @@ python experiments/exp06_sensing_surrogate_validation.py  # 2E S(P) vs FIM (know
 python experiments/exp07_psl_proxy_validation.py       # 2F max(P_k) / variance vs actual PSL
 python experiments/exp08_monte_carlo_static.py         # 2G 100-realisation Monte Carlo (--num-realizations)
 python experiments/exp09_snr_power_sweep.py            # 2H path-loss (SNR) sweep
+python experiments/exp10_crb_psl_tradeoff.py           # 2.5 CRB vs rate vs sampled PSL
+python experiments/exp11_psl_threshold_sweep.py        # 2.5 PSL_max sweep at fixed FIM
+python experiments/exp12_asymmetric_exact_fim.py       # 2.5 linear S(P) vs exact unknown FIM
+python experiments/exp13_kkt_validation.py             # 2.5 KKT weights and residuals
+python experiments/exp14_psl_cutting_plane.py          # 2.5 cutting-plane PSL
+python experiments/exp15_monte_carlo_stage25.py        # 2.5 Monte Carlo (ordinary + asymmetric)
 ```
 
 Every experiment accepts `--seed` and `--output-dir`, prints the configuration,
@@ -113,3 +128,30 @@ performance: `R_min = 0.9 C_WF` (water-filling capacity of the realisation) and
 `Gamma_s = 0.6 S_max` (largest surrogate attainable under the peak/total power
 limits). All reported metrics are recomputed with the NumPy model from the
 returned allocation; every constraint is re-verified independently.
+
+## Stage 2.5: exact unknown-amplitude FIM and sampled-grid PSL
+
+The Stage 2 linear surrogate `S(P) = sum f_k^2 P_k` equals the known-amplitude
+delay FIM up to `C_beta`, but **overestimates** ranging information when `beta`
+is an unknown complex nuisance and the spectrum is asymmetric.  The exact
+Schur-complement information is
+
+```
+G(P) = S2 - S1^2/S0 = sum_k P_k (f_k - f_bar_P)^2
+J_tau^eff = C_beta * G(P),   C_beta = 8 pi^2 N |beta|^2 / sigma_n^2
+```
+
+`G` is concave (`S1^2/S0` is quadratic-over-linear), so `J_tau^eff >= Gamma_J`
+is a convex constraint (`cp.quad_over_lin`, frequencies scaled by `max|f_k|`).
+
+Direct ambiguity control is a **sampled-grid PSL** family of second-order cones
+`||A(tau_m)|| <= rho sum P` on a moderate delay grid, verified afterwards on a
+4x–8x denser independent grid.  `P_k <= P_peak` remains a peak spectral power
+cap, not a PSL constraint.  An optional cutting-plane loop adds the worst
+validation-grid violator until the request is met or the iteration cap is hit.
+
+The KKT weight of `G` is `(f_k - f_bar_P)^2`.  This is coupled across
+subcarriers through the centroid `f_bar_P`; it reduces to `f_k^2` when the
+spectrum is symmetric.  That simple stationarity does **not** apply when
+sampled-PSL SOCs are active.
+

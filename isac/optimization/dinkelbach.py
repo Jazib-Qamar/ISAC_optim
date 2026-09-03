@@ -41,11 +41,19 @@ from typing import Sequence
 import cvxpy as cp
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 from isac.communication.rate import spectral_efficiency
 from isac.energy.power_model import system_power
+from isac.optimization.assemble import assemble_static_constraints
 from isac.optimization.common import OptimizationResult, build_scaled_model, finalize_solution
 from isac.optimization.feasibility import DEFAULT_ABS_TOL, DEFAULT_REL_TOL
+from isac.optimization.sensing_spec import (
+    DEFAULT_S0_EPSILON_W,
+    KNOWN_AMPLITUDE_LINEAR,
+    QUAD_OVER_LIN,
+    spec_from_legacy,
+)
 from isac.optimization.solver import DEFAULT_SOLVER_PREFERENCE, solve_with_fallback
 from isac.system import ISACSystem
 
@@ -96,7 +104,7 @@ class DinkelbachResult:
 
 def solve_dinkelbach_ee(
     system: ISACSystem,
-    min_sensing_surrogate: float,
+    min_sensing_surrogate: float | None = None,
     max_power_w: float | None = None,
     min_rate_se: float | None = None,
     q_initial_bit_per_j: float = 0.0,
@@ -105,13 +113,22 @@ def solve_dinkelbach_ee(
     solver_preference: Sequence[str] = DEFAULT_SOLVER_PREFERENCE,
     abs_tol: float = DEFAULT_ABS_TOL,
     rel_tol: float = DEFAULT_REL_TOL,
+    sensing_model: str = KNOWN_AMPLITUDE_LINEAR,
+    min_unknown_fim: float | None = None,
+    max_delay_crb_s2: float | None = None,
+    max_range_rmse_m: float | None = None,
+    psl_max_db: float | None = None,
+    psl_delays_s: NDArray[np.float64] | None = None,
+    psl_mainlobe_exclusion_s: float | None = None,
+    unknown_fim_representation: str = QUAD_OVER_LIN,
+    s0_epsilon_w: float = DEFAULT_S0_EPSILON_W,
 ) -> DinkelbachResult:
     """Maximise energy efficiency [bit/J] with Dinkelbach's algorithm.
 
     Parameters
     ----------
     min_sensing_surrogate:
-        ``Gamma_s`` for ``S(P) = sum_k w_k P_k``.
+        ``Gamma_s`` for ``S(P) = sum_k w_k P_k``.  Required for the linear model.
     max_power_w:
         ``P_max``; defaults to ``system.total_power_w``.
     min_rate_se:
@@ -122,6 +139,9 @@ def solve_dinkelbach_ee(
         Stop when ``|F(q)| <= rel_tolerance * R_bps(P*)``.
     max_iterations:
         Iteration cap; ``converged=False`` is reported if it is reached.
+    sensing_model:
+        ``known_amplitude_linear`` or ``unknown_amplitude_exact``.  The Dinkelbach
+        loop itself is unchanged; only the feasible set changes.
 
     Raises
     ------
@@ -129,20 +149,27 @@ def solve_dinkelbach_ee(
         Raised on the first sub-problem if the feasible set is empty (the
         feasible set does not depend on ``q``).
     """
-    if min_sensing_surrogate < 0.0:
-        raise ValueError("min_sensing_surrogate must be non-negative")
     if min_rate_se is not None and min_rate_se < 0.0:
         raise ValueError("min_rate_se must be non-negative")
     if q_initial_bit_per_j < 0.0:
         raise ValueError("q_initial_bit_per_j must be non-negative")
     if rel_tolerance <= 0.0 or max_iterations < 1:
         raise ValueError("rel_tolerance must be positive and max_iterations >= 1")
+    spec = spec_from_legacy(
+        min_sensing_surrogate,
+        sensing_model=sensing_model,
+        min_unknown_fim=min_unknown_fim,
+        max_delay_crb_s2=max_delay_crb_s2,
+        max_range_rmse_m=max_range_rmse_m,
+        psl_max_db=psl_max_db,
+        psl_delays_s=psl_delays_s,
+        psl_mainlobe_exclusion_s=psl_mainlobe_exclusion_s,
+        unknown_fim_representation=unknown_fim_representation,
+        s0_epsilon_w=s0_epsilon_w,
+    )
 
     model = build_scaled_model(system, max_power_w)
-    constraints = list(model.box_constraints)
-    constraints.append(model.sensing_scaled >= min_sensing_surrogate / model.sensing_scale)
-    if min_rate_se is not None:
-        constraints.append(model.rate_se >= min_rate_se)
+    constraints, sensing_extras = assemble_static_constraints(model, system, spec, min_rate_se=min_rate_se)
 
     delta_f = system.subcarrier_spacing_hz
     q_scaled = cp.Parameter(nonneg=True, name="q_over_delta_f")
@@ -183,22 +210,28 @@ def solve_dinkelbach_ee(
         q = q_new
 
     assert info is not None
+    extras = {
+        "dinkelbach_iterations": len(history),
+        "dinkelbach_converged": converged,
+        "dinkelbach_q_final_bit_per_j": history[-1].q_bit_per_j,
+        "dinkelbach_final_residual_bps": history[-1].residual_bps,
+        "total_solve_time_s": float(sum(step.solve_time_s for step in history)),
+    }
+    extras.update(sensing_extras)
     result = finalize_solution(
         METHOD_NAME,
         model,
         info,
         system,
         min_rate_se=min_rate_se,
-        min_sensing_surrogate=min_sensing_surrogate,
+        min_sensing_surrogate=spec.min_sensing_surrogate,
         max_power_w=max_power_w,
         abs_tol=abs_tol,
         rel_tol=rel_tol,
-        extra={
-            "dinkelbach_iterations": len(history),
-            "dinkelbach_converged": converged,
-            "dinkelbach_q_final_bit_per_j": history[-1].q_bit_per_j,
-            "dinkelbach_final_residual_bps": history[-1].residual_bps,
-            "total_solve_time_s": float(sum(step.solve_time_s for step in history)),
-        },
+        extra=extras,
+        min_unknown_fim=spec.resolved_min_unknown_fim(),
+        max_psl_db=spec.psl_max_db,
+        psl_delay_grid_s=spec.psl_delays_s,
+        psl_mainlobe_exclusion_s=spec.resolved_psl_exclusion_s(system) if spec.psl_max_db is not None else None,
     )
     return DinkelbachResult(result=result, history=tuple(history), converged=converged)

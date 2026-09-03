@@ -133,6 +133,25 @@ def _sidelobe_mask(delay_grid_s: NDArray[np.float64], mainlobe_exclusion_s: floa
     return mask
 
 
+def peak_normalized_response_db(
+    power_w: ArrayLike,
+    frequencies_hz: ArrayLike,
+    delays_s: ArrayLike,
+) -> float:
+    """``20 log10(max_m |A(tau_m)| / A(0))`` [dB] on an explicit delay list.
+
+    Unlike :func:`peak_sidelobe_level_db` this does *not* apply a mainlobe mask:
+    the caller is responsible for passing only the delays that were constrained
+    (or the delays that should be checked).
+    """
+    power, freqs, grid = _validate(power_w, frequencies_hz, delays_s)
+    phases = np.exp(2j * np.pi * np.outer(grid, freqs))
+    peak = float(np.max(np.abs(phases @ power) / float(np.sum(power))))
+    if peak <= 0.0:
+        return float("-inf")
+    return 20.0 * np.log10(peak)
+
+
 def peak_sidelobe_level_db(
     power_w: ArrayLike,
     frequencies_hz: ArrayLike,
@@ -188,6 +207,29 @@ def ambiguity_summary(
         peak_sidelobe_delay_s=float(grid[mask][peak_index]),
         num_sidelobe_samples=int(np.count_nonzero(mask)),
     )
+
+
+def psl_db_to_linear_amplitude(psl_max_db: float) -> float:
+    """Convert a PSL threshold [dB] into a linear amplitude ratio ``rho = 10^(PSL/20)``.
+
+    ``PSL <= PSL_max_db`` means ``max |A(tau_m)| / A(0) <= rho``.  ``PSL_max_db``
+    must be ``<= 0`` because ``|A(tau)| <= A(0)`` for non-negative spectra.
+    """
+    if not np.isfinite(psl_max_db):
+        raise ValueError("psl_max_db must be finite")
+    if psl_max_db > 0.0:
+        raise ValueError("psl_max_db must be <= 0 dB (sidelobes cannot exceed the main peak)")
+    return float(10.0 ** (psl_max_db / 20.0))
+
+
+def sidelobe_delay_samples(
+    delay_grid_s: ArrayLike,
+    mainlobe_exclusion_s: float,
+) -> NDArray[np.float64]:
+    """Delay samples with ``|tau| >= mainlobe_exclusion_s`` (the sampled-sidelobe set)."""
+    grid = np.asarray(delay_grid_s, dtype=np.float64)
+    mask = _sidelobe_mask(grid, mainlobe_exclusion_s)
+    return grid[mask]
 
 
 def dirichlet_delay_profile(

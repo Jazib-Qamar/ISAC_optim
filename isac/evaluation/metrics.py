@@ -18,7 +18,13 @@ from isac.communication.rate import spectral_efficiency
 from isac.energy.power_model import energy_efficiency, system_power, tx_power
 from isac.sensing.ambiguity import ambiguity_summary
 from isac.sensing.crb import delay_crb_summary
-from isac.sensing.fim import delay_fisher_information, sensing_information_surrogate
+from isac.sensing.fim import (
+    delay_fisher_information,
+    power_weighted_spectral_variance,
+    sensing_information_surrogate,
+    spectral_centroid_hz,
+    unknown_amplitude_kernel,
+)
 from isac.system import ISACSystem
 
 
@@ -46,6 +52,9 @@ class AllocationMetrics:
     peak_power_w: float
     power_variance_w2: float
     num_active_subcarriers: int
+    spectral_centroid_hz: float
+    power_weighted_spectral_variance_hz2: float
+    unknown_amplitude_kernel_w_hz2: float
 
     def as_dict(self) -> dict[str, float]:
         """Flat dictionary (for DataFrame rows)."""
@@ -117,4 +126,7 @@ def evaluate_allocation(power_w: ArrayLike, system: ISACSystem) -> AllocationMet
         peak_power_w=float(np.max(power)),
         power_variance_w2=float(np.var(power)),
         num_active_subcarriers=int(np.count_nonzero(power > 0.0)),
+        spectral_centroid_hz=spectral_centroid_hz(power, system.frequencies_hz),
+        power_weighted_spectral_variance_hz2=power_weighted_spectral_variance(power, system.frequencies_hz),
+        unknown_amplitude_kernel_w_hz2=unknown_amplitude_kernel(power, system.frequencies_hz),
     )

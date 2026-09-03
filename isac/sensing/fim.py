@@ -175,7 +175,118 @@ def surrogate_to_fisher_scale(
 ) -> float:
     """Constant ``c`` such that ``J_tau = c * S(P)`` for ``w_k = f_k^2`` (known amplitude).
 
-    ``c = N * (2 |beta|^2 / sigma^2) * (2 pi)^2`` with units ``[1/(W s^2 Hz^2)]``.
+    ``c = N * (2 |beta|^2 / sigma^2) * (2 pi)^2 = 8 pi^2 N |beta|^2 / sigma^2``
+    with units ``[1/(W s^2 Hz^2)]``.  The same constant converts the unknown-amplitude
+    kernel ``G(P)`` into ``J_tau^eff`` (see :func:`unknown_amplitude_fim_scale`).
     """
     beta_power = _validate_scalars(reflection_coefficient, noise_variance_w, num_symbols)
     return num_symbols * 2.0 * beta_power / noise_variance_w * (2.0 * np.pi) ** 2
+
+
+def unknown_amplitude_fim_scale(
+    reflection_coefficient: complex,
+    noise_variance_w: float,
+    num_symbols: int = 1,
+) -> float:
+    """Scale ``C_beta`` such that ``J_tau^eff = C_beta * G(P)`` [1/(W s^2 Hz^2)].
+
+    ``C_beta = 8 pi^2 N |beta|^2 / sigma_n^2``.  This is identical to
+    :func:`surrogate_to_fisher_scale`; the name is kept so the unknown-amplitude
+    constraint is not confused with the linear surrogate ``S(P)``.
+    """
+    return surrogate_to_fisher_scale(reflection_coefficient, noise_variance_w, num_symbols)
+
+
+def power_moments(
+    power_w: ArrayLike,
+    frequencies_hz: ArrayLike,
+) -> tuple[float, float, float]:
+    """Power-spectrum moments ``(S0, S1, S2)``.
+
+    ``S0 = sum P_k`` [W], ``S1 = sum f_k P_k`` [W Hz], ``S2 = sum f_k^2 P_k`` [W Hz^2].
+    """
+    power, freqs = _validate_power_and_frequencies(power_w, frequencies_hz)
+    s0 = float(np.sum(power))
+    s1 = float(np.dot(freqs, power))
+    s2 = float(np.dot(freqs**2, power))
+    return s0, s1, s2
+
+
+def spectral_centroid_hz(power_w: ArrayLike, frequencies_hz: ArrayLike) -> float:
+    """Power-weighted spectral centroid ``f_bar_P = S1 / S0`` [Hz].
+
+    Returns ``0`` when no power is transmitted (the centroid is undefined).
+    """
+    s0, s1, _ = power_moments(power_w, frequencies_hz)
+    if s0 == 0.0:
+        return 0.0
+    return s1 / s0
+
+
+def unknown_amplitude_kernel(power_w: ArrayLike, frequencies_hz: ArrayLike) -> float:
+    """Concave kernel ``G(P) = S2 - S1^2 / S0`` [W Hz^2] of the unknown-amplitude delay FIM.
+
+    Identity (verified in tests): ``G(P) = sum_k P_k (f_k - f_bar_P)^2`` for ``S0 > 0``.
+    This is *not* a surrogate: ``J_tau^eff = C_beta * G(P)`` under the Stage 1 model.
+    Returns ``0`` when ``S0 = 0``.
+    """
+    s0, s1, s2 = power_moments(power_w, frequencies_hz)
+    if s0 == 0.0:
+        return 0.0
+    return max(s2 - s1**2 / s0, 0.0)
+
+
+def power_weighted_spectral_variance(
+    power_w: ArrayLike,
+    frequencies_hz: ArrayLike,
+) -> float:
+    """Power-weighted spectral variance ``G(P) / S0 = sum_k (P_k/S0) (f_k - f_bar_P)^2`` [Hz^2].
+
+    Returns ``0`` when no power is transmitted.
+    """
+    s0, _, _ = power_moments(power_w, frequencies_hz)
+    if s0 == 0.0:
+        return 0.0
+    return unknown_amplitude_kernel(power_w, frequencies_hz) / s0
+
+
+def unknown_amplitude_sensing_information(
+    power_w: ArrayLike,
+    frequencies_hz: ArrayLike,
+    reflection_coefficient: complex,
+    noise_variance_w: float,
+    num_symbols: int = 1,
+) -> float:
+    """Effective delay Fisher information for unknown complex ``beta`` [1/s^2].
+
+    Delegates to :func:`delay_fisher_information` with ``known_amplitude=False``
+    so there is a single physical model.  Equivalent closed form:
+
+        J_tau^eff = C_beta * G(P),   G(P) = S2 - S1^2/S0.
+    """
+    return delay_fisher_information(
+        power_w,
+        frequencies_hz,
+        reflection_coefficient,
+        noise_variance_w,
+        num_symbols=num_symbols,
+        known_amplitude=False,
+    )
+
+
+def unknown_amplitude_kernel_gradient(
+    power_w: ArrayLike,
+    frequencies_hz: ArrayLike,
+) -> NDArray[np.float64]:
+    """Exact gradient ``dG/dP_k = (f_k - f_bar_P)^2`` [Hz^2] for ``S0 > 0``.
+
+    ``f_bar_P`` depends on the whole vector ``P``; the envelope terms from
+    ``d f_bar / d P_k`` cancel, leaving this simple expression.  It is *not* an
+    independent per-tone weight: changing any ``P_j`` moves the centroid.
+    """
+    power, freqs = _validate_power_and_frequencies(power_w, frequencies_hz)
+    s0 = float(np.sum(power))
+    if s0 <= 0.0:
+        raise ValueError("unknown_amplitude_kernel_gradient requires strictly positive total power")
+    f_bar = float(np.dot(freqs, power)) / s0
+    return (freqs - f_bar) ** 2

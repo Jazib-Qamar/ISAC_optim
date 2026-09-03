@@ -181,6 +181,31 @@ def heatmap(
     return save_figure(fig, path)
 
 
+def allocation_heatmap(
+    allocations: np.ndarray,
+    x_values: Sequence[float],
+    x_label: str,
+    title: str,
+    path: Path,
+    color_label: str = "power $P_k$ [mW]",
+) -> Path:
+    """Heatmap of power allocations: rows = subcarriers, columns = sweep points."""
+    fig, ax = plt.subplots(figsize=FIG_SIZE)
+    im = ax.imshow(
+        allocations * 1e3,
+        aspect="auto",
+        origin="lower",
+        cmap="viridis",
+        extent=(float(min(x_values)), float(max(x_values)), -0.5, allocations.shape[0] - 0.5),
+    )
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label(color_label)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("subcarrier index k")
+    ax.set_title(title)
+    return save_figure(fig, path)
+
+
 def boxplot_by_method(
     frame: pd.DataFrame,
     column: str,

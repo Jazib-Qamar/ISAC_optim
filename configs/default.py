@@ -235,19 +235,32 @@ class AmbiguityConfig:
     oversampling_factor:
         Number of delay-grid samples per mainlobe scale ``1 / B``.  The grid
         therefore has ``K * oversampling_factor`` points over one period.
+        Used by Stage 2 metric evaluation.
     mainlobe_exclusion_factor:
         Half-width of the excluded mainlobe region in units of ``1 / B``.  ``1.0``
         excludes exactly up to the first null of the uniform-spectrum response.
+    optimization_oversampling_factor:
+        Moderately dense grid used to *build* sampled-PSL SOC constraints
+        (Stage 2.5).  Independent of ``oversampling_factor``.
+    validation_oversampling_factor:
+        Denser independent grid used to *verify* PSL after optimisation
+        (typically 4x–8x the optimisation grid).
     """
 
     oversampling_factor: int = 16
     mainlobe_exclusion_factor: float = 1.0
+    optimization_oversampling_factor: int = 4
+    validation_oversampling_factor: int = 32
 
     def __post_init__(self) -> None:
         if self.oversampling_factor < 2:
             raise ValueError("oversampling_factor must be at least 2")
         if self.mainlobe_exclusion_factor <= 0.0:
             raise ValueError("mainlobe_exclusion_factor must be positive")
+        if self.optimization_oversampling_factor < 2:
+            raise ValueError("optimization_oversampling_factor must be at least 2")
+        if self.validation_oversampling_factor < self.optimization_oversampling_factor:
+            raise ValueError("validation_oversampling_factor must be >= optimization_oversampling_factor")
 
 
 @dataclass(frozen=True)

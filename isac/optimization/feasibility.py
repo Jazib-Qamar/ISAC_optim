@@ -18,7 +18,8 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from isac.communication.rate import spectral_efficiency
-from isac.sensing.fim import sensing_information_surrogate
+from isac.sensing.ambiguity import peak_normalized_response_db
+from isac.sensing.fim import delay_fisher_information, sensing_information_surrogate
 from isac.system import ISACSystem
 
 DEFAULT_ABS_TOL: float = 1e-9
@@ -106,6 +107,10 @@ def check_static_constraints(
     max_power_w: float | None = None,
     abs_tol: float = DEFAULT_ABS_TOL,
     rel_tol: float = DEFAULT_REL_TOL,
+    min_unknown_fim: float | None = None,
+    max_psl_db: float | None = None,
+    psl_delay_grid_s: ArrayLike | None = None,
+    psl_mainlobe_exclusion_s: float | None = None,
 ) -> FeasibilityReport:
     """Verify all hard constraints of the static ISAC problems for ``power_w``.
 
@@ -121,6 +126,14 @@ def check_static_constraints(
         ``Gamma_s`` for ``S(P) = sum_k w_k P_k``; ``None`` skips.
     max_power_w:
         Total power limit; defaults to ``system.total_power_w``.
+    min_unknown_fim:
+        ``Gamma_J`` for the unknown-amplitude delay FIM [1/s^2]; ``None`` skips.
+    max_psl_db:
+        Sampled-grid PSL cap [dB]; requires ``psl_delay_grid_s``.  ``None`` skips.
+    psl_delay_grid_s:
+        Delay grid used to evaluate the sampled PSL (optimisation or validation).
+    psl_mainlobe_exclusion_s:
+        Mainlobe half-width [s]; defaults to ``system.mainlobe_exclusion_s``.
     """
     power: NDArray[np.float64] = np.asarray(power_w, dtype=np.float64)
     if power.shape != system.channel_gain.shape:
@@ -139,6 +152,21 @@ def check_static_constraints(
     if min_sensing_surrogate is not None:
         surrogate = sensing_information_surrogate(clipped, system.sensing_weights)
         checks.append(_check("min_sensing", ">=", surrogate, float(min_sensing_surrogate), abs_tol, rel_tol))
+    if min_unknown_fim is not None:
+        fim_unknown = delay_fisher_information(
+            clipped,
+            system.frequencies_hz,
+            system.reflection_coefficient,
+            system.noise_power_w,
+            num_symbols=system.num_symbols,
+            known_amplitude=False,
+        )
+        checks.append(_check("min_unknown_fim", ">=", fim_unknown, float(min_unknown_fim), abs_tol, rel_tol))
+    if max_psl_db is not None:
+        if psl_delay_grid_s is None:
+            raise ValueError("max_psl_db requires psl_delay_grid_s")
+        psl = peak_normalized_response_db(clipped, system.frequencies_hz, psl_delay_grid_s)
+        checks.append(_check("max_psl", "<=", psl, float(max_psl_db), abs_tol, rel_tol))
     return FeasibilityReport(tuple(checks))
 
 
@@ -168,3 +196,44 @@ def max_sensing_surrogate(
         power[idx] = allocation
         remaining -= allocation
     return float(np.dot(w, power)), power
+
+
+def max_unknown_amplitude_fim(
+    system: ISACSystem,
+    total_power_w: float | None = None,
+    s0_epsilon_w: float = 1e-12,
+) -> tuple[float, NDArray[np.float64]]:
+    """Largest unknown-amplitude delay FIM under the box and budget constraints.
+
+    Maximises the concave kernel ``G(P) = S2 - S1^2/S0`` (equivalently ``J_tau^eff``)
+    subject to ``0 <= P_k <= P_peak`` and ``sum P_k <= P_total``.  Returns
+    ``(J_max [1/s^2], P_star)``.
+    """
+    import cvxpy as cp
+
+    from isac.optimization.common import build_scaled_model
+    from isac.optimization.fim_constraints import encode_unknown_fim_constraint
+    from isac.optimization.solver import solve_with_fallback
+    from isac.sensing.fim import unknown_amplitude_sensing_information
+
+    budget = system.total_power_w if total_power_w is None else float(total_power_w)
+    model = build_scaled_model(system, budget)
+    # Maximise G by requesting G >= 0 and maximising the kernel via a dummy
+    # encoding at gamma_fim=0, then using the scaled quad-over-lin expression.
+    encoding = encode_unknown_fim_constraint(
+        model.power_w, system.frequencies_hz, gamma_fim=0.0, s0_epsilon_w=s0_epsilon_w
+    )
+    kernel = encoding.s2 - cp.quad_over_lin(encoding.s1, encoding.s0)
+    problem = cp.Problem(cp.Maximize(kernel), list(model.box_constraints) + encoding.constraints)
+    solve_with_fallback(problem, "max_unknown_amplitude_fim")
+    if model.x.value is None:
+        raise RuntimeError("max_unknown_amplitude_fim: solver returned no primal value")
+    power = np.maximum(np.asarray(model.x.value, dtype=np.float64) * system.peak_power_w, 0.0)
+    j_max = unknown_amplitude_sensing_information(
+        power,
+        system.frequencies_hz,
+        system.reflection_coefficient,
+        system.noise_power_w,
+        num_symbols=system.num_symbols,
+    )
+    return j_max, power

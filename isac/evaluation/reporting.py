@@ -12,6 +12,7 @@ import pandas as pd
 from configs.default import DefaultConfig
 
 STAGE2_ROOT = Path("results") / "stage2"
+STAGE25_ROOT = Path("results") / "stage2_5"
 
 
 def print_header(title: str, width: int = 78) -> None:
@@ -39,7 +40,7 @@ def print_config(cfg: DefaultConfig) -> None:
 
 
 def experiment_dir(name: str, root: Path | None = None) -> Path:
-    """``results/stage2/<name>`` (created)."""
+    """``results/stage2/<name>`` by default (created).  Pass ``STAGE25_ROOT`` for Stage 2.5."""
     path = (root or STAGE2_ROOT) / name
     path.mkdir(parents=True, exist_ok=True)
     return path
