@@ -5,10 +5,15 @@ Exploratory Stage 1/2/2.5 outputs remain in `results/stage2/` and `results/stage
 
 ## 1. Pytest
 
-........................................................................ [ 58%]
-...................................................                      [100%]
-123 passed in 3.23s
+........................................................................ [ 57%]
+.....................................................                    [100%]
+=============================== warnings summary ===============================
+tests/test_proposed_cutting_plane.py::test_cutting_plane_detects_sampled_miss_and_adds_dense_cuts
+  /workspace/isac/optimization/solver.py:96: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+    problem.solve(solver=solver_name, **options.get(solver_name, {}))
 
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+125 passed, 1 warning in 8.93s
 
 
 ## 2. Experiment commands
@@ -37,11 +42,14 @@ controlled mechanism experiment only.
 ## 4–18. Numerical evidence (auto)
 
 - Natural-channel sample size: 500
+- Natural-channel methods: ['conventional_s2', 'conventional_s2_psl', 'exact_efim', 'exact_efim_cutting_plane_psl', 'exact_efim_sampled_psl', 'uniform', 'water_filling']
+- Natural-channel EE method included?: False
 - Natural-channel mean FIM mismatch (conventional S2): 0.7337 %
 - Natural-channel median FIM mismatch: 0.0118 %
-- Mismatch >1%/2%/5%/10%: 12.2% / 7.8% / 4.2% / 2.2% of realisations
-- Pearson r(|f_bar|, ε_J): 0.920
-- Spearman ρ: 1.000
+- Natural-channel p95 / max FIM mismatch: 3.317 % / 23.46 %
+- Mismatch >1%/2%/5%/10%: 12.20% / 7.80% / 4.20% / 2.20% of realisations
+- Pearson r(|f_bar|, ε_J): 0.92
+- Spearman ρ: 1
 - Conventional false sensing-feasibility rate (solver tolerance): 88.00%
 - Conventional *material* (>1% FIM shortfall) false-feasibility: 11.20%
 - Exact-EFIM false sensing-feasibility rate: 0.00%
@@ -54,11 +62,11 @@ controlled mechanism experiment only.
 - Empirical FIM–PSL feasibility boundary (Γ_J/J_max, 50% channels): 0.5
 - EE gain vs max-rate (mean %): 27.9
 - Associated rate reduction (mean %): 16.6
-- Mismatch by K: K=64 → 1.09%; K=128 → 0.744%; K=256 → 0.927%
+- Mismatch by K: {64: 1.0890591732082533, 128: 0.7436881978103921, 256: 0.9274026199843484}
+- Numerology methods by K: {64: ['conventional_s2', 'conventional_s2_psl', 'exact_efim', 'exact_efim_cutting_plane_psl', 'exact_efim_sampled_psl', 'uniform', 'water_filling'], 128: ['conventional_s2', 'exact_efim', 'exact_efim_cutting_plane_psl', 'uniform', 'water_filling'], 256: ['conventional_s2', 'exact_efim', 'uniform', 'water_filling']}
 - Optimisation-result rows stored: 8060
+
 - Suite wall-clock: 2049.8 s (34.2 min)
-
-
 
 ## Questions (evidence only)
 
@@ -118,6 +126,99 @@ Strongest scientifically defensible ICC claim:
 - Controlled tilt is synthetic.
 - No published Yang/Iqbal (or other paper) baseline is plotted, because none was implemented.
 - Dinkelbach, SOCs, water-filling and CRB optimisation are not claimed as novel.
+- Natural N=500 Monte Carlo omits `exact_efim_cutting_plane_psl_ee` (present in frontier and ablation).
+- Numerology holds Δf fixed so B=KΔf; K=256 ran cheap methods only (no PSL SOCs).
+- Power-vector NPZ dumps are not stored; CSVs are the archival format.
+
+## Files under results/icc_paper/
+
+- FIGURE_INDEX.md
+- configs/icc_ablation.json
+- configs/icc_controlled_asymmetry.json
+- configs/icc_cutting_plane_mc.json
+- configs/icc_fair_comparison.json
+- configs/icc_feasibility_map.json
+- configs/icc_frontier.json
+- configs/icc_natural_tdl_mc.json
+- configs/icc_numerology.json
+- figures/README.md
+- figures/fig1_natural_asymmetry_mismatch.pdf
+- figures/fig1_natural_asymmetry_mismatch.png
+- figures/fig2a_controlled_mismatch.pdf
+- figures/fig2a_controlled_mismatch.png
+- figures/fig2b_controlled_centroid.pdf
+- figures/fig2b_controlled_centroid.png
+- figures/fig3_rate_vs_ranging.pdf
+- figures/fig3_rate_vs_ranging.png
+- figures/fig4_actual_sensing_feasibility.pdf
+- figures/fig4_actual_sensing_feasibility.png
+- figures/fig5_dense_psl.pdf
+- figures/fig5_dense_psl.png
+- figures/fig6_cutting_plane_refinement.pdf
+- figures/fig6_cutting_plane_refinement.png
+- figures/fig7_ee_vs_ranging.pdf
+- figures/fig7_ee_vs_ranging.png
+- figures/fig8_feasibility_map.pdf
+- figures/fig8_feasibility_map.png
+- figures/fig9a_cdf_rate.pdf
+- figures/fig9a_cdf_rate.png
+- figures/fig9b_box_unknown_fim.pdf
+- figures/fig9b_box_unknown_fim.png
+- figures/fig9c_box_dense_psl.pdf
+- figures/fig9c_box_dense_psl.png
+- figures/fig9d_box_ee.pdf
+- figures/fig9d_box_ee.png
+- logs/experiments_icc_ablation.exit
+- logs/experiments_icc_controlled_asymmetry.exit
+- logs/experiments_icc_cutting_plane_mc.exit
+- logs/experiments_icc_fair_comparison.exit
+- logs/experiments_icc_feasibility_map.exit
+- logs/experiments_icc_frontier.exit
+- logs/experiments_icc_generate_paper.exit
+- logs/experiments_icc_natural_tdl_mc.exit
+- logs/experiments_icc_numerology.exit
+- logs/icc_ablation.log
+- logs/icc_controlled_asymmetry.log
+- logs/icc_cutting_plane_mc.log
+- logs/icc_fair_comparison.log
+- logs/icc_feasibility_map.log
+- logs/icc_frontier.log
+- logs/icc_natural_tdl_mc.log
+- logs/icc_numerology.log
+- raw_data/icc_ablation_raw.csv
+- raw_data/icc_controlled_asymmetry_raw.csv
+- raw_data/icc_controlled_asymmetry_summary.csv
+- raw_data/icc_cutting_plane_mc_raw.csv
+- raw_data/icc_cutting_plane_mc_summary.csv
+- raw_data/icc_fair_comparison_raw.csv
+- raw_data/icc_fair_comparison_summary.csv
+- raw_data/icc_feasibility_map_raw.csv
+- raw_data/icc_frontier_raw.csv
+- raw_data/icc_natural_tdl_mc_mismatch_stats.csv
+- raw_data/icc_natural_tdl_mc_raw.csv
+- raw_data/icc_natural_tdl_mc_summary.csv
+- raw_data/icc_numerology_raw.csv
+- raw_data/icc_numerology_summary.csv
+- summary/FIGURE_INDEX.md
+- summary/FINAL_ICC_RESULTS.md
+- summary/PAPER_CLAIMS.md
+- summary/pytest.txt
+- summary/suite_runtime_s.txt
+- tables/table1_simulation_parameters.csv
+- tables/table1_simulation_parameters.md
+- tables/table1_simulation_parameters.tex
+- tables/table2_baseline_comparison.csv
+- tables/table2_baseline_comparison.md
+- tables/table2_baseline_comparison.tex
+- tables/table3_natural_mc_statistics.csv
+- tables/table3_natural_mc_statistics.md
+- tables/table3_natural_mc_statistics.tex
+- tables/table4_controlled_asymmetry.csv
+- tables/table4_controlled_asymmetry.md
+- tables/table4_controlled_asymmetry.tex
+- tables/table5_ablation.csv
+- tables/table5_ablation.md
+- tables/table5_ablation.tex
 
 ## Missing raw files
 

@@ -7,8 +7,9 @@ Optimisers are not re-run.
 - Experiment command: `python -m experiments.icc_natural_tdl_mc`
 - Raw data: `results/icc_paper/raw_data/icc_natural_tdl_mc_raw.csv`
 - Compared methods: conventional_s2, exact_efim
-- x-axis: |f_bar_P|
-- y-axis: epsilon_J
+- x-axis: |f_bar_P| [kHz]
+- y-axis: epsilon_J [%]
+- Sample size: 500
 - CI method: none (scatter)
 - Channel model: exponential PDP TDL
 - Physical sensing target: Γ_J = 0.5 J_max (unknown-amplitude), uniform-spectrum PSL request for PSL methods
@@ -20,7 +21,8 @@ Optimisers are not re-run.
 - Raw data: `results/icc_paper/raw_data/icc_controlled_asymmetry_raw.csv`
 - Compared methods: conventional_s2, exact_efim
 - x-axis: asymmetry a
-- y-axis: epsilon_J
+- y-axis: epsilon_J [%]
+- Sample size: 9 levels × 40 realisations
 - CI method: Student-t 95% interval across realisations at each a
 - Channel model: controlled logistic tilt (NOT a realistic model)
 - Physical sensing target: Γ_J = 0.5 J_max
@@ -33,6 +35,7 @@ Optimisers are not re-run.
 - Compared methods: conventional_s2, exact_efim
 - x-axis: asymmetry a
 - y-axis: |f_bar_P| [kHz]
+- Sample size: 9 levels × 40 realisations
 - CI method: Student-t 95% interval
 - Channel model: controlled logistic tilt (NOT a realistic model)
 - Physical sensing target: Γ_J = 0.5 J_max
@@ -45,8 +48,8 @@ Optimisers are not re-run.
 - Compared methods: water_filling, conventional_s2, conventional_s2_psl, exact_efim, exact_efim_cutting_plane_psl, exact_efim_cutting_plane_psl_ee
 - x-axis: target range RMSE [m]
 - y-axis: rate [Mbit/s]
-- Sample size: 12 TDL channels × FIM-fraction sweep
-- CI method: mean across channels
+- Sample size: 12 TDL × FIM-fraction sweep
+- CI method: mean across 12 TDL channels
 - Channel model: exponential PDP TDL
 - Physical sensing target: common unknown-amplitude Γ_J (swept)
 - PSL definition: uniform-spectrum request; dense validation
@@ -72,7 +75,9 @@ Optimisers are not re-run.
 - x-axis: Γ_J / J_max
 - y-axis: PSL [dB] (dense solid, opt-grid dotted)
 - Sample size: 12 TDL channels
+- CI method: mean across 12 TDL channels
 - Channel model: exponential PDP TDL
+- Physical sensing target: swept Γ_J / J_max with uniform-spectrum PSL request
 - PSL definition: independent dense grid is the paper claim
 - Scientific question: Dense-grid ambiguity vs ranging requirement
 
@@ -83,7 +88,9 @@ Optimisers are not re-run.
 - x-axis: method / PSL margin [dB]
 - y-axis: dense violation rate / empirical CDF
 - Sample size: 200
+- CI method: empirical rate / CDF, N=200
 - Channel model: exponential PDP TDL
+- Physical sensing target: Γ_J = 0.5 J_max, uniform-spectrum PSL
 - PSL definition: independent dense grid, tolerance 0.25 dB
 - Scientific question: Does cutting-plane remove dense-grid PSL misses?
 
@@ -94,7 +101,10 @@ Optimisers are not re-run.
 - x-axis: target range RMSE [m]
 - y-axis: EE [Mbit/J]
 - Sample size: 12 TDL channels
+- CI method: mean across 12 TDL channels
 - Channel model: exponential PDP TDL
+- Physical sensing target: swept unknown-amplitude Γ_J + cutting-plane PSL for proposed/EE
+- PSL definition: uniform-spectrum request; dense validation
 - Scientific question: EE gain vs rate loss under exact EFIM + dense PSL
 
 ## fig8_feasibility_map
@@ -104,15 +114,21 @@ Optimisers are not re-run.
 - x-axis: Γ_J / J_max
 - y-axis: requested PSL [dB]
 - Sample size: 4 TDL channels × requirement grid
+- CI method: majority classification across 4 channels
 - Channel model: exponential PDP TDL
+- Physical sensing target: joint (Γ_J, PSL) grid
+- PSL definition: independent dense grid
 - Scientific question: Joint FIM–PSL feasibility frontier
 
 ## fig9a–d Monte Carlo distributions
 - Experiment command: `python -m experiments.icc_natural_tdl_mc`
 - Raw data: `results/icc_paper/raw_data/icc_natural_tdl_mc_raw.csv`
-- Compared methods: uniform, water_filling, conventional_s2, conventional_s2_psl, exact_efim, exact_efim_sampled_psl, exact_efim_cutting_plane_psl
-- Metrics: rate CDF; unknown FIM / dense PSL / EE boxplots
+- Compared methods: uniform, water_filling, conventional_s2, conventional_s2_psl, exact_efim, exact_efim_sampled_psl, exact_efim_cutting_plane_psl (EE omitted from N=500)
+- x-axis: method / metric value
+- y-axis: CDF / boxplot
 - Sample size: 500
+- CI method: empirical distribution, N=500
 - Channel model: exponential PDP TDL
+- Physical sensing target: Γ_J = 0.5 J_max, uniform-spectrum PSL for PSL methods
+- PSL definition: independent dense grid
 - Scientific question: Statistical method comparison on natural TDL channels
-

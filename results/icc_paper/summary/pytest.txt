@@ -1,4 +1,9 @@
-........................................................................ [ 58%]
-...................................................                      [100%]
-123 passed in 3.23s
+........................................................................ [ 57%]
+.....................................................                    [100%]
+=============================== warnings summary ===============================
+tests/test_proposed_cutting_plane.py::test_cutting_plane_detects_sampled_miss_and_adds_dense_cuts
+  /workspace/isac/optimization/solver.py:96: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+    problem.solve(solver=solver_name, **options.get(solver_name, {}))
 
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+125 passed, 1 warning in 8.93s

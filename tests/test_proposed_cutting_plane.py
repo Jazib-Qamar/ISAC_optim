@@ -127,21 +127,24 @@ def test_proposed_cutting_plane_meets_dense_psl_when_feasible(system64: ISACSyst
 def test_cutting_plane_detects_sampled_miss_and_adds_dense_cuts(system64: ISACSystem) -> None:
     """When the first sampled solve misses the dense grid, cuts are added until it is met."""
     j_max, _ = max_unknown_amplitude_fim(system64)
+    psl_max = -0.8
+    tol = 0.05
     result = solve_proposed_max_rate(
         system64,
-        psl_max_db=-0.6,
-        min_unknown_fim=0.99 * j_max,
+        psl_max_db=psl_max,
+        min_unknown_fim=0.98 * j_max,
         optimization_oversampling=2,
         validation_oversampling=32,
         max_iterations=10,
-        psl_tolerance_db=0.05,
+        psl_tolerance_db=tol,
     )
     assert result.history[0].added_delay_s is not None
     assert result.num_added_soc_constraints >= 1
+    assert result.num_cutting_plane_iterations >= 2
     assert result.converged
     assert result.dense_psl_satisfied
-    assert result.validation_grid_psl_db <= -0.6 + 0.05
-    assert result.initial_validation_grid_psl_db > -0.6 + 0.05
+    assert result.validation_grid_psl_db <= psl_max + tol
+    assert result.initial_validation_grid_psl_db > psl_max + tol
 
 
 def test_proposed_impossible_psl_remains_infeasible(system64: ISACSystem) -> None:
