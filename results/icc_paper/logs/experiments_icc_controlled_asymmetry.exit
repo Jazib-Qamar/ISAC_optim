@@ -1,0 +1,2 @@
+cmd=/workspace/.venv/bin/python -m experiments.icc_controlled_asymmetry --quick
+returncode=0

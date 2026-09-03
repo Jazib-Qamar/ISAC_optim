@@ -1,0 +1,1 @@
+n=12 methods=['uniform', 'water_filling', 'conventional_s2', 'exact_efim', 'exact_efim_sampled_psl', 'exact_efim_cutting_plane_psl'] elapsed_s=12.633

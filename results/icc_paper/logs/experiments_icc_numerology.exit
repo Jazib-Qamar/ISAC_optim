@@ -1,0 +1,2 @@
+cmd=/workspace/.venv/bin/python -m experiments.icc_numerology --quick
+returncode=0

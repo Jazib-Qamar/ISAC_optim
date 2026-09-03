@@ -188,7 +188,7 @@ def plot_box_methods(
     if not data:
         ax.text(0.5, 0.5, "no finite samples", ha="center", va="center", transform=ax.transAxes)
         return save_ieee(fig, stem)
-    bp = ax.boxplot(data, labels=labels, patch_artist=True, showfliers=True, widths=0.6)
+    bp = ax.boxplot(data, tick_labels=labels, patch_artist=True, showfliers=True, widths=0.6)
     for patch, color in zip(bp["boxes"], colors):
         patch.set_facecolor(color)
         patch.set_alpha(0.45)

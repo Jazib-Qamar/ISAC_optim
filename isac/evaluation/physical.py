@@ -182,6 +182,8 @@ def evaluate_independent(
     claimed_j_known = target.c_beta * claimed_s
 
     physical_ok = bool(j_unknown + target.unknown_fim_tolerance() >= target.gamma_unknown_fim)
+    physical_ok_1pct = bool(j_unknown >= 0.99 * target.gamma_unknown_fim) if target.gamma_unknown_fim > 0 else physical_ok
+    physical_ok_2pct = bool(j_unknown >= 0.98 * target.gamma_unknown_fim) if target.gamma_unknown_fim > 0 else physical_ok
     if optimizer_model == "conventional_s2":
         claimed_ok = bool(claimed_s + target.conventional_s_tolerance() >= target.gamma_conventional_s)
     elif optimizer_model == "exact_efim":
@@ -191,6 +193,13 @@ def evaluate_independent(
 
     false_feasibility = bool(
         optimizer_model == "conventional_s2" and status == "ok" and claimed_ok and not physical_ok
+    )
+    material_false_1pct = bool(
+        optimizer_model == "conventional_s2" and status == "ok" and claimed_ok and not physical_ok_1pct
+    )
+    relative_unknown_gap = (
+        (j_unknown - target.gamma_unknown_fim) / target.gamma_unknown_fim
+        if target.gamma_unknown_fim > 0.0 else float("nan")
     )
 
     delays = optimization_sidelobe_delays(system, target.optimization_oversampling)
@@ -251,7 +260,11 @@ def evaluate_independent(
         "max_range_rmse_m_target": target.max_range_rmse_m,
         "optimizer_claimed_sensing_satisfied": claimed_ok if optimizer_model != "none" else False,
         "physical_sensing_satisfied": physical_ok if status == "ok" else False,
+        "physical_sensing_satisfied_1pct": physical_ok_1pct if status == "ok" else False,
+        "physical_sensing_satisfied_2pct": physical_ok_2pct if status == "ok" else False,
+        "relative_unknown_fim_gap": relative_unknown_gap,
         "false_sensing_feasibility": false_feasibility,
+        "material_false_sensing_feasibility_1pct": material_false_1pct,
         "psl_requirement_applicable": psl_applicable,
         "requested_psl_max_db": target.psl_max_db if target.psl_max_db is not None else float("nan"),
         "optimization_grid_psl_db": opt_psl,

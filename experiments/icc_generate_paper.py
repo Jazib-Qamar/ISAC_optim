@@ -592,6 +592,7 @@ def write_claims(natural, ctrl, cp, front, numerology) -> dict:
         corr = pearson_spearman(s2["centroid_magnitude_hz"], s2["fim_mismatch_percent"]) if not s2.empty else {}
         false_s2 = float(s2["false_sensing_feasibility"].mean()) if not s2.empty else float("nan")
         false_ef = float(ef["false_sensing_feasibility"].mean()) if not ef.empty else float("nan")
+        material_s2 = float(s2["material_false_sensing_feasibility_1pct"].mean()) if (not s2.empty and "material_false_sensing_feasibility_1pct" in s2.columns) else float("nan")
         phys_s2 = float(s2["physical_sensing_satisfied"].mean()) if not s2.empty else float("nan")
         phys_ef = float(ef["physical_sensing_satisfied"].mean()) if not ef.empty else float("nan")
         evidence.update({
@@ -603,6 +604,7 @@ def write_claims(natural, ctrl, cp, front, numerology) -> dict:
             "spearman_rho": corr.get("spearman_rho"),
             "false_s2": false_s2,
             "false_ef": false_ef,
+            "material_false_s2_1pct": material_s2,
             "phys_s2": phys_s2,
             "phys_ef": phys_ef,
         })
@@ -626,11 +628,12 @@ def write_claims(natural, ctrl, cp, front, numerology) -> dict:
                 "Monte Carlo", "Compared only on realisations where both methods returned a primal.",
             )
         add(
-            f"False sensing-feasibility rate (claims S-constraint met but independent J_unknown misses Γ_J): "
-            f"conventional S2 {_pct(false_s2)}; exact EFIM {_pct(false_ef)}.",
+            f"False sensing-feasibility rate (claims S-constraint met but independent J_unknown misses Γ_J within solver tolerance): "
+            f"conventional S2 {_pct(false_s2)}; exact EFIM {_pct(false_ef)}. "
+            f"Material (>1% relative shortfall) false-feasibility: conventional S2 {_pct(material_s2)}.",
             "icc_natural_tdl_mc", "icc_natural_tdl_mc_raw.csv", evidence["natural_n"],
-            {"false_s2": false_s2, "false_ef": false_ef},
-            "Monte Carlo", "Depends on the chosen Γ_J / J_max fraction.",
+            {"false_s2": false_s2, "false_ef": false_ef, "material_false_s2_1pct": material_s2},
+            "Monte Carlo", "Depends on the chosen Γ_J / J_max fraction. Solver-tolerance violations can be much more frequent than 1% FIM shortfalls when S is an active constraint.",
         )
 
     if ctrl is not None:

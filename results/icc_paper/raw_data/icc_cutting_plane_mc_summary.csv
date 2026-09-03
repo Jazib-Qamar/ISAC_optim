@@ -1,0 +1,4 @@
+method,n_ok,n_infeasible,dense_violation_rate,mean_psl_margin_db,mean_cutting_plane_iterations,mean_solve_time_s
+conventional_s2_psl,15,0,0.2,-0.23783729173223828,,0.4760196219996336
+exact_efim_sampled_psl,15,0,0.2,-0.23670175967822155,,0.6584987042003679
+exact_efim_cutting_plane_psl,15,0,0.0,-0.20349457940759438,1.2,0.9000627110661299

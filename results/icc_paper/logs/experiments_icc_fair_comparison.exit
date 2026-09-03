@@ -1,0 +1,2 @@
+cmd=/workspace/.venv/bin/python -m experiments.icc_fair_comparison --quick
+returncode=0

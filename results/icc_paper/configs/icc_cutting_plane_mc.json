@@ -1,0 +1,80 @@
+{
+  "experiment": "icc_cutting_plane_mc",
+  "ofdm": {
+    "num_subcarriers": 64,
+    "subcarrier_spacing_hz": 15000.0,
+    "carrier_frequency_hz": 3500000000.0,
+    "noise_psd_dbm_per_hz": -174.0,
+    "noise_figure_db": 7.0,
+    "total_power_w": 1.0,
+    "peak_power_factor": 4.0
+  },
+  "channel": {
+    "path_loss_db": 120.0,
+    "temporal_correlation": 0.99
+  },
+  "tdl": {
+    "num_taps": null,
+    "rms_delay_spread_s": 3e-07,
+    "tap_spacing_s": 5e-08,
+    "coverage_rms_multiples": 6.0
+  },
+  "sensing": {
+    "target_range_m": 50.0,
+    "reflection_gain_db": -100.0,
+    "reflection_phase_rad": 0.0,
+    "num_symbols": 1,
+    "known_amplitude": true,
+    "surrogate_weighting": "squared_frequency"
+  },
+  "energy": {
+    "circuit_power_w": 0.5,
+    "pa_efficiency": 0.35,
+    "slot_duration_s": 0.001
+  },
+  "ambiguity": {
+    "oversampling_factor": 16,
+    "mainlobe_exclusion_factor": 1.0,
+    "optimization_oversampling_factor": 4,
+    "validation_oversampling_factor": 32,
+    "cutting_plane_max_iterations": 20,
+    "psl_tolerance_db": 0.25
+  },
+  "optimization": {
+    "solver_preference": [
+      "CLARABEL",
+      "SCS"
+    ],
+    "feasibility_abs_tol": 1e-09,
+    "feasibility_rel_tol": 1e-06,
+    "dinkelbach_max_iterations": 50,
+    "dinkelbach_rel_tolerance": 1e-08,
+    "rate_fraction_of_water_filling": 0.9,
+    "sensing_fraction_of_maximum": 0.6,
+    "fim_fraction_of_maximum": 0.5
+  },
+  "simulation": {
+    "seed": 0,
+    "output_dir": "results"
+  },
+  "derived": {
+    "noise_psd_w_per_hz": 1.9952623149688828e-20,
+    "noise_power_per_subcarrier_w": 2.9928934724533243e-16,
+    "peak_power_w": 0.0625,
+    "bandwidth_hz": 960000.0,
+    "symbol_duration_s": 6.666666666666667e-05,
+    "round_trip_delay_s": 3.3356409519815204e-07,
+    "path_gain": 1e-12,
+    "tdl_num_taps": 37,
+    "mainlobe_scale_s": 1.0416666666666667e-06
+  },
+  "run": {
+    "n": 15,
+    "fim_fraction": 0.5,
+    "methods": [
+      "conventional_s2_psl",
+      "exact_efim_sampled_psl",
+      "exact_efim_cutting_plane_psl"
+    ]
+  }
+}

@@ -1,0 +1,2 @@
+cmd=/workspace/.venv/bin/python -m experiments.icc_natural_tdl_mc --quick
+returncode=0
